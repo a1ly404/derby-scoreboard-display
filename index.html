@@ -56,6 +56,12 @@
       font-size: 14px; font-weight: bold; letter-spacing: 1px;
     }
     #disconnect-banner.visible { display: block; }
+    #timeout-banner {
+      display: none; background: #2a2000; border-bottom: 2px solid #f90;
+      color: #fc0; padding: 8px 12px; text-align: center;
+      font-size: 18px; font-weight: bold; letter-spacing: 2px;
+    }
+    #timeout-banner.visible { display: block; }
 
     /* ── Game meta ──────────────────────────────────────────────────────── */
     #game-meta {
@@ -215,7 +221,10 @@
   ⚠ API DISCONNECTED — showing stale data — <span id="stale-age">?</span>s old
 </div>
 
-<!-- ── 4. Game meta / clocks ─────────────────────────────────────────────── -->
+<!-- ── 4. Timeout banner ────────────────────────────────────────────────── -->
+<div id="timeout-banner">TIMEOUT</div>
+
+<!-- ── 5. Game meta / clocks ─────────────────────────────────────────────── -->
 <div id="game-meta">
   <span id="game-state-badge">—</span>
   <span id="period-jam">P— J—</span>
@@ -444,6 +453,8 @@ function render(s) {
     : gsLow.includes('intermission')           ? 'state-intermission'
     : gsLow === 'final' || gsLow === 'postgame' ? 'state-final'
     : '';
+
+  document.getElementById('timeout-banner').classList.toggle('visible', !!s.timeout_type);
 
   setText('period-jam', `P${s.period ?? '—'}  J${s.jam ?? '—'}`);
 
