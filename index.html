@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Derby Scoreboard Display</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0a0a0a; color: #e0e0e0; font-family: 'Courier New', monospace; font-size: 13px; }
+
+    /* ── Config bar ─────────────────────────────────────────────────────── */
+    #config-bar {
+      background: #1a1a1a; border-bottom: 1px solid #333;
+      padding: 6px 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    #config-bar label { color: #666; font-size: 11px; }
+    #config-bar input {
+      background: #2a2a2a; color: #e0e0e0; border: 1px solid #444;
+      padding: 3px 6px; font-family: inherit; font-size: 12px;
+    }
+    #api-url { width: 220px; }
+    #poll-ms  { width: 60px; }
+    .btn {
+      background: #222; color: #bbb; border: 1px solid #444;
+      padding: 4px 10px; cursor: pointer; font-family: inherit; font-size: 12px;
+    }
+    .btn:hover { background: #333; }
+    .btn-connect    { border-color: #4a4; color: #4a4; }
+    .btn-disconnect { border-color: #a44; color: #a44; }
+    #config-status  { font-size: 11px; color: #555; }
+
+    /* ── Health bar ─────────────────────────────────────────────────────── */
+    #health-bar {
+      background: #111; border-bottom: 1px solid #1a1a1a;
+      padding: 4px 10px; display: flex; align-items: center; gap: 16px;
+      font-size: 11px; flex-wrap: wrap;
+    }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #444; margin-right: 4px; }
+    .dot.green  { background: #4c4; box-shadow: 0 0 5px #4c4; }
+    .dot.red    { background: #c44; box-shadow: 0 0 5px #c44; }
+    .dot.yellow { background: #ca4; box-shadow: 0 0 5px #ca4; }
+    .stat-label { color: #555; }
+    .stat-val   { color: #aaa; }
+    .stat-warn  { color: #fa0; font-weight: bold; }
+    .stat-crit  { color: #f44; font-weight: bold; }
+    #conn-label { font-weight: bold; }
+    #conn-label.green  { color: #4c4; }
+    #conn-label.yellow { color: #ca4; }
+    #conn-label.red    { color: #c44; }
+
+    /* ── Disconnect banner ──────────────────────────────────────────────── */
+    #disconnect-banner {
+      display: none; background: #2a0000; border-bottom: 2px solid #f44;
+      color: #f88; padding: 8px 12px; text-align: center;
+      font-size: 14px; font-weight: bold; letter-spacing: 1px;
+    }
+    #disconnect-banner.visible { display: block; }
+
+    /* ── Game meta ──────────────────────────────────────────────────────── */
+    #game-meta {
+      background: #0f0f0f; border-bottom: 1px solid #1a1a1a;
+      padding: 6px 12px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+    #game-state-badge {
+      padding: 2px 10px; border-radius: 2px; font-size: 11px;
+      font-weight: bold; letter-spacing: 1px; background: #222; color: #666;
+    }
+    #game-state-badge.state-running      { background: #0f2a0f; color: #4c4; border: 1px solid #1a3a1a; }
+    #game-state-badge.state-timeout      { background: #2a2a00; color: #ca4; border: 1px solid #3a3a00; }
+    #game-state-badge.state-intermission { background: #0a0a2a; color: #44c; border: 1px solid #111133; }
+    #game-state-badge.state-final        { background: #2a0a0a; color: #c44; border: 1px solid #3a1111; }
+    #period-jam { color: #666; font-size: 12px; }
+    .clock-group { display: flex; flex-direction: column; align-items: center; }
+    .clock-label { font-size: 9px; color: #555; letter-spacing: 1px; text-transform: uppercase; }
+    .clock-val { font-size: 22px; color: #ddd; letter-spacing: 3px; font-weight: bold; min-width: 70px; text-align: center; }
+    .clock-val.running { color: #4cf; }
+    .clock-sep { color: #333; font-size: 20px; padding: 0 4px; align-self: center; }
+
+    /* ── Teams ──────────────────────────────────────────────────────────── */
+    #teams { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #1a1a1a; }
+    .team-panel { padding: 10px 12px; }
+    #team1-panel { border-right: 1px solid #222; }
+
+    .team-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #1a1a1a; }
+    .team-name { font-size: 15px; font-weight: bold; flex: 1; color: #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .team-name.lead { color: #ffd700; }
+    .team-name.lost { color: #666; text-decoration: line-through; }
+    .team-jam-score { font-size: 13px; color: #4cf; min-width: 28px; text-align: right; }
+    .team-score { font-size: 26px; font-weight: bold; color: #fff; min-width: 42px; text-align: right; }
+
+    .badges { display: flex; gap: 5px; margin-bottom: 6px; flex-wrap: wrap; min-height: 18px; }
+    .badge { padding: 1px 7px; border-radius: 2px; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; white-space: nowrap; }
+    .badge-lead     { background: #3a2800; color: #ffd700; border: 1px solid #5a4000; }
+    .badge-lost     { background: #2a0000; color: #f44; border: 1px solid #500; }
+    .badge-calloff  { background: #0f0f2a; color: #66f; border: 1px solid #222244; }
+    .badge-starpass { background: #1a0a2a; color: #c8f; border: 1px solid #442255; }
+    .badge-powerjam { background: #2a1500; color: #f80; border: 1px solid #503000; }
+
+    /* ── Skater rows ────────────────────────────────────────────────────── */
+    .skaters { display: flex; flex-direction: column; gap: 2px; }
+    .skater-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 3px 4px; border-radius: 2px; border-left: 3px solid transparent;
+    }
+    .skater-row.in-box    { background: #1a0000; border-left-color: #f44; }
+    .skater-row.sp-active { background: #120018; border-left-color: #c8f; }
+    .pos-label { font-size: 9px; color: #555; width: 50px; text-align: right; text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0; }
+    .skater-num  { color: #ffd700; font-weight: bold; min-width: 30px; font-size: 12px; flex-shrink: 0; }
+    .skater-name { color: #ccc; flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .skater-name.null-name { color: #444; font-style: italic; }
+
+    .box-timer { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; gap: 2px; }
+    .box-timer-num           { font-size: 13px; font-weight: bold; color: #f44; line-height: 1; }
+    .box-timer-num.expired   { color: #f80; animation: blink 0.6s step-end infinite; }
+    .box-timer-num.unknown   { color: #777; font-size: 9px; font-weight: normal; }
+    .box-bar-wrap { width: 64px; height: 4px; background: #1a0000; border-radius: 1px; }
+    .box-bar      { height: 4px; border-radius: 1px; background: #f44; transition: width 0.18s linear; }
+    .box-bar.expired { background: #f80; }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ── Alerts ─────────────────────────────────────────────────────────── */
+    #alerts-section { border-bottom: 1px solid #1a1a1a; }
+    #alerts-header {
+      background: #111; padding: 4px 10px; font-size: 11px; color: #555;
+      display: flex; justify-content: space-between; align-items: center;
+      letter-spacing: 1px;
+    }
+    #alerts-log { max-height: 110px; overflow-y: auto; background: #090909; }
+    .alert-row { padding: 2px 10px; display: flex; gap: 8px; border-bottom: 1px solid #0f0f0f; }
+    .alert-time   { color: #383838; font-size: 10px; flex-shrink: 0; }
+    .alert-msg           { font-size: 11px; }
+    .alert-msg.warning   { color: #fa0; }
+    .alert-msg.critical  { color: #f55; }
+    .alert-msg.info      { color: #4cf; }
+    .no-data { color: #333; font-style: italic; padding: 5px 10px; font-size: 11px; }
+
+    /* ── Collapsible panels ─────────────────────────────────────────────── */
+    details { border-bottom: 1px solid #1a1a1a; }
+    summary {
+      background: #111; padding: 6px 10px; cursor: pointer;
+      user-select: none; font-size: 11px; color: #555; list-style: none;
+      letter-spacing: 1px; text-transform: uppercase;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::before { content: '▶  '; }
+    details[open] summary::before { content: '▼  '; }
+    summary:hover { background: #1a1a1a; color: #888; }
+
+    /* ── Test harness ───────────────────────────────────────────────────── */
+    #harness-content { padding: 12px 12px 6px; }
+    .harness-section { margin-bottom: 14px; }
+    .harness-title { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; border-bottom: 1px solid #181818; padding-bottom: 3px; }
+
+    #detectors-grid { display: flex; flex-direction: column; gap: 2px; }
+    .det-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; font-size: 11px; }
+    .det-label { color: #777; flex: 1; }
+    .det-status { padding: 1px 8px; border-radius: 2px; font-size: 10px; min-width: 64px; text-align: center; }
+    .det-status.inactive { background: #141414; color: #333; }
+    .det-status.active-info { background: #00202a; color: #4cf; border: 1px solid #004455; }
+    .det-status.active-warn { background: #2a1800; color: #fa0; border: 1px solid #443300; }
+    .det-status.active-crit { background: #2a0000; color: #f55; border: 1px solid #440000; }
+
+    .scenario-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+    .sc-card { background: #0f0f0f; border: 1px solid #1e1e1e; padding: 8px; border-radius: 2px; }
+    .sc-title    { font-size: 12px; font-weight: bold; color: #bbb; margin-bottom: 5px; }
+    .sc-do       { font-size: 10px; color: #555; margin-bottom: 3px; }
+    .sc-do strong   { color: #777; }
+    .sc-expect      { font-size: 10px; color: #446; margin-bottom: 2px; }
+    .sc-expect strong { color: #558; }
+    .sc-bug         { font-size: 10px; color: #642; }
+    .sc-bug strong  { color: #864; }
+
+    /* ── Raw inspector ──────────────────────────────────────────────────── */
+    #raw-content { padding: 10px; }
+    #raw-buttons { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+    #raw-last-fetch { font-size: 10px; color: #444; margin-left: auto; }
+    #raw-output {
+      width: 100%; height: 280px; background: #080808; color: #4cf;
+      border: 1px solid #1a1a1a; font-family: 'Courier New', monospace;
+      font-size: 11px; padding: 6px; resize: vertical;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── 1. Config bar ──────────────────────────────────────────────────────── -->
+<div id="config-bar">
+  <label for="api-url">API Base URL:</label>
+  <input id="api-url" type="text" placeholder="http://localhost:5001" />
+  <label for="poll-ms">Poll (ms):</label>
+  <input id="poll-ms" type="number" min="100" max="5000" step="50" />
+  <button class="btn btn-connect"    onclick="startPolling()">Connect</button>
+  <button class="btn btn-disconnect" onclick="stopPolling()">Disconnect</button>
+  <span id="config-status"></span>
+</div>
+
+<!-- ── 2. Health bar ──────────────────────────────────────────────────────── -->
+<div id="health-bar">
+  <span>
+    <span class="dot" id="conn-dot"></span>
+    <span id="conn-label" class="red">DISCONNECTED</span>
+  </span>
+  <span><span class="stat-label">SB:</span> <span class="stat-val" id="sb-version">—</span></span>
+  <span><span class="stat-label">Age:</span> <span id="state-age" class="stat-val">—</span></span>
+  <span><span class="stat-label">Lat avg/p95:</span> <span class="stat-val" id="lat-avg">—</span>/<span class="stat-val" id="lat-p95">—</span> ms</span>
+  <span><span class="stat-label">Errors:</span> <span class="stat-val" id="err-count">0</span></span>
+  <span><span class="stat-label">Req:</span> <span class="stat-val" id="req-count">0</span></span>
+</div>
+
+<!-- ── 3. Disconnect banner ───────────────────────────────────────────────── -->
+<div id="disconnect-banner">
+  ⚠ API DISCONNECTED — showing stale data — <span id="stale-age">?</span>s old
+</div>
+
+<!-- ── 4. Game meta / clocks ─────────────────────────────────────────────── -->
+<div id="game-meta">
+  <span id="game-state-badge">—</span>
+  <span id="period-jam">P— J—</span>
+  <div style="flex:1"></div>
+  <div class="clock-group">
+    <div class="clock-label">Jam</div>
+    <div class="clock-val" id="jam-clock">—:——</div>
+  </div>
+  <div class="clock-sep">|</div>
+  <div class="clock-group">
+    <div class="clock-label">Period</div>
+    <div class="clock-val" id="period-clock">—:——</div>
+  </div>
+</div>
+
+<!-- ── 5. Teams ───────────────────────────────────────────────────────────── -->
+<div id="teams">
+  <div class="team-panel" id="team1-panel">
+    <div class="team-header">
+      <div class="team-name" id="t1-name">Team 1</div>
+      <div class="team-jam-score" id="t1-jam-score"></div>
+      <div class="team-score" id="t1-score">—</div>
+    </div>
+    <div class="badges" id="t1-badges"></div>
+    <div class="skaters" id="t1-skaters"></div>
+  </div>
+  <div class="team-panel" id="team2-panel">
+    <div class="team-header">
+      <div class="team-name" id="t2-name">Team 2</div>
+      <div class="team-jam-score" id="t2-jam-score"></div>
+      <div class="team-score" id="t2-score">—</div>
+    </div>
+    <div class="badges" id="t2-badges"></div>
+    <div class="skaters" id="t2-skaters"></div>
+  </div>
+</div>
+
+<!-- ── 6. Alert log ───────────────────────────────────────────────────────── -->
+<div id="alerts-section">
+  <div id="alerts-header">
+    <span>Alert Log</span>
+    <button class="btn" style="font-size:10px;padding:2px 6px" onclick="clearAlerts()">Clear</button>
+  </div>
+  <div id="alerts-log">
+    <div class="no-data">No alerts yet.</div>
+  </div>
+</div>
+
+<!-- ── 7. Test harness ────────────────────────────────────────────────────── -->
+<details id="harness">
+  <summary>Test Harness — Live Detectors &amp; Scenario Guide</summary>
+  <div id="harness-content">
+    <div class="harness-section">
+      <div class="harness-title">Live Detectors (update every tick)</div>
+      <div id="detectors-grid"></div>
+    </div>
+    <div class="harness-section">
+      <div class="harness-title">Scenario Guide — What to do on CRG + what to watch</div>
+      <div class="scenario-grid" id="scenario-grid"></div>
+    </div>
+  </div>
+</details>
+
+<!-- ── 8. Raw inspector ───────────────────────────────────────────────────── -->
+<details id="raw-inspector">
+  <summary>Raw Payload Inspector</summary>
+  <div id="raw-content">
+    <div id="raw-buttons">
+      <button class="btn" id="btn-auto-live">▶ Auto /live</button>
+      <button class="btn" onclick="fetchRaw()">Fetch /raw (manual)</button>
+      <span id="raw-last-fetch"></span>
+    </div>
+    <textarea id="raw-output" readonly placeholder="/live or /raw payload appears here"></textarea>
+  </div>
+</details>
+
+<script>
+'use strict';
+
+// ── Config & persistent state ────────────────────────────────────────────────
+let API_BASE = localStorage.getItem('api_base') || 'http://localhost:5001';
+let POLL_MS  = parseInt(localStorage.getItem('poll_ms') || '200', 10);
+document.getElementById('api-url').value = API_BASE;
+document.getElementById('poll-ms').value = POLL_MS;
+
+let pollTimer    = null;
+let lastState    = null;
+let lastScores   = {};       // { t1: number|null, t2: number|null }
+let rawAutoLive  = false;
+let reqSeq       = 0;        // monotonic sequence to discard stale responses
+
+// ── Latency / error tracking ─────────────────────────────────────────────────
+const LAT_WINDOW = 50;
+let latencies  = [];
+let errorCount = 0;
+let reqCount   = 0;
+
+function trackLatency(ms) {
+  latencies.push(ms);
+  if (latencies.length > LAT_WINDOW) latencies.shift();
+}
+
+function latAvg() {
+  if (!latencies.length) return null;
+  return Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length);
+}
+
+function latP95() {
+  if (!latencies.length) return null;
+  const s = [...latencies].sort((a, b) => a - b);
+  return s[Math.max(0, Math.ceil(s.length * 0.95) - 1)];
+}
+
+function updateHealthBar() {
+  setText('lat-avg',   latAvg() !== null  ? latAvg()  : '—');
+  setText('lat-p95',   latP95() !== null  ? latP95()  : '—');
+  setText('err-count', errorCount);
+  setText('req-count', reqCount);
+}
+
+// ── Alert system ─────────────────────────────────────────────────────────────
+const MAX_ALERTS   = 150;
+const ALERT_RATE   = 2000;   // ms — suppress duplicate alerts within this window
+let alertLog       = [];
+const alertSeen    = {};     // key -> last fired timestamp
+
+function addAlert(level, msg, key) {
+  const k   = key || msg;
+  const now = Date.now();
+  if (alertSeen[k] && now - alertSeen[k] < ALERT_RATE) return;
+  alertSeen[k] = now;
+  alertLog.unshift({ level, msg, t: new Date().toLocaleTimeString() });
+  if (alertLog.length > MAX_ALERTS) alertLog.length = MAX_ALERTS;
+  renderAlerts();
+}
+
+function clearAlerts() {
+  alertLog = [];
+  renderAlerts();
+}
+
+function renderAlerts() {
+  const el = document.getElementById('alerts-log');
+  if (!alertLog.length) {
+    el.innerHTML = '<div class="no-data">No alerts.</div>';
+    return;
+  }
+  el.innerHTML = alertLog
+    .map(a => `<div class="alert-row">
+      <span class="alert-time">${a.t}</span>
+      <span class="alert-msg ${a.level}">${escHtml(a.msg)}</span>
+    </div>`)
+    .join('');
+}
+
+// ── DOM helpers ──────────────────────────────────────────────────────────────
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) { const s = String(val); if (el.textContent !== s) el.textContent = s; }
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function msToTime(ms) {
+  if (ms === null || ms === undefined) return '—:——';
+  const total = Math.max(0, Math.round(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+// ── Main render ──────────────────────────────────────────────────────────────
+function render(s) {
+  // Connection banner
+  const banner = document.getElementById('disconnect-banner');
+  if (!s.connected) {
+    banner.classList.add('visible');
+    setText('stale-age', s.state_age_seconds !== null ? s.state_age_seconds.toFixed(1) : '?');
+  } else {
+    banner.classList.remove('visible');
+  }
+
+  // Health bar — connection indicator
+  const dot   = document.getElementById('conn-dot');
+  const label = document.getElementById('conn-label');
+  if (s.connected) {
+    dot.className = 'dot green';
+    label.className = 'green';
+    label.textContent = 'CONNECTED';
+  } else if (s.game_state) {
+    dot.className = 'dot yellow';
+    label.className = 'yellow';
+    label.textContent = 'STALE';
+  } else {
+    dot.className = 'dot red';
+    label.className = 'red';
+    label.textContent = 'DISCONNECTED';
+  }
+
+  // State age
+  const ageEl  = document.getElementById('state-age');
+  const age    = s.state_age_seconds;
+  ageEl.textContent = age !== null ? age.toFixed(1) + 's' : '—';
+  ageEl.className   = age > 3  ? 'stat-crit'
+                    : age > 1  ? 'stat-warn'
+                    :            'stat-val';
+
+  updateHealthBar();
+
+  // Game meta
+  const gs      = s.game_state || '—';
+  const gsBadge = document.getElementById('game-state-badge');
+  if (gsBadge.textContent !== gs) gsBadge.textContent = gs;
+  const gsLow   = gs.toLowerCase();
+  gsBadge.className =
+    gsLow === 'running'                        ? 'state-running'
+    : gsLow === 'timeout'                      ? 'state-timeout'
+    : gsLow.includes('intermission')           ? 'state-intermission'
+    : gsLow === 'final' || gsLow === 'postgame' ? 'state-final'
+    : '';
+
+  setText('period-jam', `P${s.period ?? '—'}  J${s.jam ?? '—'}`);
+
+  const jamEl = document.getElementById('jam-clock');
+  const jt    = msToTime(s.jam_clock_ms);
+  if (jamEl.textContent !== jt) jamEl.textContent = jt;
+  jamEl.className = 'clock-val' + (s.jam_running ? ' running' : '');
+
+  setText('period-clock', msToTime(s.period_clock_ms));
+
+  // Teams — pass opposing jammer status so power jam badge can show
+  const t1BoxJ = s.team1.jammer.in_box && !s.team2.jammer.in_box;
+  const t2BoxJ = s.team2.jammer.in_box && !s.team1.jammer.in_box;
+  renderTeam('t1', s.team1, s.in_jam, t2BoxJ);
+  renderTeam('t2', s.team2, s.in_jam, t1BoxJ);
+
+  // Raw auto-update
+  if (rawAutoLive) {
+    document.getElementById('raw-output').value = JSON.stringify(s, null, 2);
+    setText('raw-last-fetch', `Last /live: ${new Date().toLocaleTimeString()}`);
+  }
+}
+
+const POSITIONS = ['jammer', 'pivot', 'blocker1', 'blocker2', 'blocker3'];
+
+function renderTeam(pfx, team, inJam, powerJam) {
+  // Name
+  const nameEl    = document.getElementById(pfx + '-name');
+  const teamName  = team.name || (pfx === 't1' ? 'Team 1' : 'Team 2');
+  if (nameEl.textContent !== teamName) nameEl.textContent = teamName;
+  nameEl.className = 'team-name'
+    + (team.display_lead ? ' lead' : '')
+    + (team.lost         ? ' lost' : '');
+
+  // Score
+  setText(pfx + '-score', team.score !== null ? team.score : '—');
+
+  // Jam score
+  const jsEl = document.getElementById(pfx + '-jam-score');
+  const jsText = (inJam && team.jam_score !== null) ? '+' + team.jam_score : '';
+  if (jsEl.textContent !== jsText) jsEl.textContent = jsText;
+
+  // Badges
+  let badges = '';
+  if (team.display_lead) badges += '<span class="badge badge-lead">★ LEAD</span>';
+  if (team.lost)         badges += '<span class="badge badge-lost">LOST</span>';
+  if (team.calloff)      badges += '<span class="badge badge-calloff">CALLED OFF</span>';
+  if (team.star_pass)    badges += '<span class="badge badge-starpass">↕ STAR PASS</span>';
+  if (powerJam)          badges += '<span class="badge badge-powerjam">⚡ POWER JAM</span>';
+  const badgesEl = document.getElementById(pfx + '-badges');
+  if (badgesEl.innerHTML !== badges) badgesEl.innerHTML = badges;
+
+  // Skater rows — rebuild only if content changed
+  const skatersEl = document.getElementById(pfx + '-skaters');
+  const rows = POSITIONS.map(pos => buildSkaterRow(pos, team[pos], team.star_pass)).join('');
+  if (skatersEl.innerHTML !== rows) skatersEl.innerHTML = rows;
+}
+
+function buildSkaterRow(pos, skater, starPass) {
+  // Star pass: pivot becomes acting jammer, jammer becomes acting pivot
+  let label = pos.replace(/blocker(\d)/, 'B$1').toUpperCase();
+  if (starPass) {
+    if (pos === 'jammer') label = 'PIVOT (SP)';
+    else if (pos === 'pivot') label = 'JAMMER (SP)';
+  }
+
+  const inBox    = skater.in_box;
+  const remaining = skater.box_time_remaining_s;
+  const enteredAt = skater.box_entered_at_ms;
+
+  let rowClass = 'skater-row';
+  if (inBox) rowClass += ' in-box';
+  if (starPass && (pos === 'jammer' || pos === 'pivot')) rowClass += ' sp-active';
+
+  const numHtml  = skater.number ? `<span class="skater-num">#${escHtml(skater.number)}</span>` : '<span class="skater-num"></span>';
+  const nameHtml = skater.name
+    ? `<span class="skater-name">${escHtml(skater.name)}</span>`
+    : `<span class="skater-name null-name">—</span>`;
+
+  let timerHtml = '';
+  if (inBox) {
+    if (remaining === null) {
+      // Client reconnected mid-jam: skater was already in box, no entry time recorded
+      timerHtml = `<span class="box-timer-num unknown">IN BOX<br>timer unknown</span>`;
+    } else if (remaining === 0) {
+      // Time expired — NSO has not yet released skater
+      timerHtml = `<div class="box-timer">
+        <span class="box-timer-num expired">TIME EXPIRED</span>
+        <div class="box-bar-wrap"><div class="box-bar expired" style="width:0%"></div></div>
+      </div>`;
+    } else {
+      const pct = Math.min(100, Math.round((remaining / 30) * 100));
+      timerHtml = `<div class="box-timer">
+        <span class="box-timer-num">${remaining}s</span>
+        <div class="box-bar-wrap"><div class="box-bar" style="width:${pct}%"></div></div>
+      </div>`;
+    }
+  }
+
+  return `<div class="${rowClass}">
+    <span class="pos-label">${label}</span>
+    ${numHtml}
+    ${nameHtml}
+    ${timerHtml}
+  </div>`;
+}
+
+// ── Detector definitions ─────────────────────────────────────────────────────
+const DETECTORS = [
+  { key: 'expired_box',      label: 'Box timer = 0 but skater still in box (double-penalty risk)', level: 'crit' },
+  { key: 'both_jammers_box', label: 'Both jammers in penalty box simultaneously',                  level: 'crit' },
+  { key: 'power_jam_t1',     label: 'Power jam — Team 1 opportunity (T2 jammer in box)',           level: 'warn' },
+  { key: 'power_jam_t2',     label: 'Power jam — Team 2 opportunity (T1 jammer in box)',           level: 'warn' },
+  { key: 'star_pass_t1',     label: 'Star pass active — Team 1',                                   level: 'info' },
+  { key: 'star_pass_t2',     label: 'Star pass active — Team 2',                                   level: 'info' },
+  { key: 'sp_box_t1',        label: 'Star pass + acting jammer (pivot) in box — Team 1',           level: 'crit' },
+  { key: 'sp_box_t2',        label: 'Star pass + acting jammer (pivot) in box — Team 2',           level: 'crit' },
+  { key: 'lead_lost_t1',     label: 'Lead=true AND Lost=true simultaneously — Team 1',             level: 'warn' },
+  { key: 'lead_lost_t2',     label: 'Lead=true AND Lost=true simultaneously — Team 2',             level: 'warn' },
+  { key: 'frozen',           label: 'state_age_seconds > 3 while connected (scoreboard frozen?)',  level: 'crit' },
+  { key: 'null_name',        label: 'Null team name received from API',                            level: 'warn' },
+  { key: 'neg_clock',        label: 'Negative jam clock value',                                    level: 'warn' },
+  { key: 'overclock',        label: 'Jam clock > 2 minutes (120 000 ms)',                          level: 'warn' },
+  { key: 'score_regression', label: 'Score decreased from previous poll',                         level: 'warn' },
+  { key: 'timer_unknown',    label: 'Skater in box with no timer (reconnected mid-jam)',           level: 'info' },
+];
+
+const detActive = {};
+DETECTORS.forEach(d => { detActive[d.key] = false; });
+
+function initDetectorsUI() {
+  document.getElementById('detectors-grid').innerHTML = DETECTORS.map(d =>
+    `<div class="det-row">
+      <span class="det-label">${escHtml(d.label)}</span>
+      <span class="det-status inactive" id="det-${d.key}">—</span>
+    </div>`
+  ).join('');
+}
+
+function setDet(key, active, text) {
+  const el = document.getElementById('det-' + key);
+  if (!el) return;
+  const d   = DETECTORS.find(x => x.key === key);
+  const lvl = d ? d.level : 'warn';
+  if (active) {
+    el.className  = `det-status active-${lvl}`;
+    el.textContent = text || 'ACTIVE';
+  } else {
+    el.className  = 'det-status inactive';
+    el.textContent = '—';
+  }
+}
+
+function runDetectors(s) {
+  const t1 = s.team1, t2 = s.team2;
+
+  // Expired box timer (skater still in box after 30s)
+  let expiredAny = false;
+  let unknownAny = false;
+  for (const [tKey, team] of [['t1', t1], ['t2', t2]]) {
+    for (const pos of POSITIONS) {
+      const sk = team[pos];
+      if (!sk.in_box) continue;
+      if (sk.box_time_remaining_s === 0) {
+        expiredAny = true;
+        addAlert('critical',
+          `⚠ EXPIRED TIMER — ${team.name || tKey} ${pos} (#${sk.number || '?'}) still in box`,
+          `expired_${tKey}_${pos}`);
+      }
+      if (sk.box_time_remaining_s === null) {
+        unknownAny = true;
+      }
+    }
+  }
+  setDet('expired_box',   expiredAny, 'ACTIVE');
+  setDet('timer_unknown', unknownAny, 'in box, no timer');
+
+  // Both jammers in box
+  const bothBox = t1.jammer.in_box && t2.jammer.in_box;
+  setDet('both_jammers_box', bothBox, 'ACTIVE');
+  if (bothBox)
+    addAlert('critical', `🔴 BOTH JAMMERS IN BOX — ${t1.name || 'T1'} & ${t2.name || 'T2'}`, 'both_jammers_box');
+
+  // Power jams (one jammer in box, not both)
+  const pjT1 = t2.jammer.in_box && !t1.jammer.in_box;   // T1 opportunity (T2 jammer boxed)
+  const pjT2 = t1.jammer.in_box && !t2.jammer.in_box;   // T2 opportunity (T1 jammer boxed)
+  setDet('power_jam_t1', pjT1, pjT1 ? `${t2.name || 'T2'} J in box` : '—');
+  setDet('power_jam_t2', pjT2, pjT2 ? `${t1.name || 'T1'} J in box` : '—');
+  if (pjT1) addAlert('warning', `⚡ POWER JAM — ${t1.name || 'T1'} has advantage`, 'pj_t1');
+  if (pjT2) addAlert('warning', `⚡ POWER JAM — ${t2.name || 'T2'} has advantage`, 'pj_t2');
+
+  // Star pass
+  setDet('star_pass_t1', t1.star_pass, 'ACTIVE');
+  setDet('star_pass_t2', t2.star_pass, 'ACTIVE');
+  if (t1.star_pass) addAlert('info', `↕ STAR PASS — ${t1.name || 'T1'}`, 'sp_t1');
+  if (t2.star_pass) addAlert('info', `↕ STAR PASS — ${t2.name || 'T2'}`, 'sp_t2');
+
+  // Star pass + pivot (acting jammer) in box
+  const spBoxT1 = t1.star_pass && t1.pivot.in_box;
+  const spBoxT2 = t2.star_pass && t2.pivot.in_box;
+  setDet('sp_box_t1', spBoxT1, 'ACTIVE');
+  setDet('sp_box_t2', spBoxT2, 'ACTIVE');
+  if (spBoxT1) addAlert('critical', `💀 STAR PASS + PIVOT IN BOX — ${t1.name || 'T1'} (acting jammer is boxed)`, 'sp_box_t1');
+  if (spBoxT2) addAlert('critical', `💀 STAR PASS + PIVOT IN BOX — ${t2.name || 'T2'} (acting jammer is boxed)`, 'sp_box_t2');
+
+  // Lead + Lost simultaneously
+  const llT1 = !!(t1.lead && t1.lost);
+  const llT2 = !!(t2.lead && t2.lost);
+  setDet('lead_lost_t1', llT1, 'ACTIVE');
+  setDet('lead_lost_t2', llT2, 'ACTIVE');
+  if (llT1) addAlert('warning', `⚠ LEAD=true AND LOST=true — ${t1.name || 'T1'}`, 'll_t1');
+  if (llT2) addAlert('warning', `⚠ LEAD=true AND LOST=true — ${t2.name || 'T2'}`, 'll_t2');
+
+  // Frozen scoreboard
+  const frozen = s.connected && s.state_age_seconds !== null && s.state_age_seconds > 3;
+  setDet('frozen', frozen, frozen ? s.state_age_seconds.toFixed(1) + 's' : '—');
+  if (frozen)
+    addAlert('critical', `🧊 SCOREBOARD FROZEN — state_age=${s.state_age_seconds.toFixed(1)}s while connected`, 'frozen');
+
+  // Null team names
+  const nullName = t1.name === null || t2.name === null;
+  setDet('null_name', nullName, 'ACTIVE');
+  if (t1.name === null) addAlert('warning', `⚠ NULL TEAM 1 NAME`, 'null_t1');
+  if (t2.name === null) addAlert('warning', `⚠ NULL TEAM 2 NAME`, 'null_t2');
+
+  // Negative jam clock
+  const negClock = s.jam_clock_ms !== null && s.jam_clock_ms < 0;
+  setDet('neg_clock', negClock, negClock ? s.jam_clock_ms + 'ms' : '—');
+  if (negClock)
+    addAlert('warning', `⚠ NEGATIVE JAM CLOCK: ${s.jam_clock_ms}ms`, 'neg_clock');
+
+  // Overclock (jam > 2 min)
+  const over = s.jam_clock_ms !== null && s.jam_clock_ms > 120000;
+  setDet('overclock', over, over ? msToTime(s.jam_clock_ms) : '—');
+  if (over)
+    addAlert('warning', `⚠ JAM CLOCK > 2 MIN: ${msToTime(s.jam_clock_ms)}`, 'overclock');
+
+  // Score regression
+  let scoreReg = false;
+  for (const [k, team] of [['t1', t1], ['t2', t2]]) {
+    const prev = lastScores[k];
+    if (prev !== undefined && prev !== null && team.score !== null && team.score < prev) {
+      scoreReg = true;
+      addAlert('warning',
+        `⚠ SCORE REGRESSION — ${team.name || k}: ${prev} → ${team.score}`,
+        `score_reg_${k}`);
+    }
+    if (team.score !== null) lastScores[k] = team.score;
+  }
+  setDet('score_regression', scoreReg, scoreReg ? 'ACTIVE' : '—');
+}
+
+// ── Scenario guide data ───────────────────────────────────────────────────────
+const SCENARIOS = [
+  {
+    title: 'Double Penalty',
+    action: 'Send a skater to box → wait for 30s countdown → immediately send same skater to box again.',
+    expected: 'box_time_remaining_s resets to 30 on re-entry. "Expired timer" alert clears, new countdown starts.',
+    bug: 'Does old box_entered_at_ms persist? "Timer unknown" alert should NOT fire on re-entry.',
+  },
+  {
+    title: 'Star Pass',
+    action: 'Execute a star pass on CRG scoreboard (jammer passes helmet cover to pivot).',
+    expected: 'star_pass=true. Pivot row label switches to "JAMMER (SP)", jammer to "PIVOT (SP)". Star pass badge visible.',
+    bug: 'Does lead/calloff flag stay on the correct team? Star pass on T2 should not affect T1 display.',
+  },
+  {
+    title: 'Both Jammers In Box',
+    action: 'Send both jammers to box simultaneously (or in quick succession).',
+    expected: 'Both jammer rows show in-box styling. Two independent countdown timers. "Both jammers in box" detector fires.',
+    bug: 'Are box_entered_at_ms values distinct? If both enter in same tick, do timers show correct independent values?',
+  },
+  {
+    title: 'Power Jam',
+    action: 'T1 jammer goes to box. T2 jammer remains on track.',
+    expected: '"Power jam — T2 has advantage" detector fires. POWER JAM badge on T2 panel. Box timer on T1 jammer.',
+    bug: 'display_lead should drive the lead star, not lead directly. Verify correct flag drives visual.',
+  },
+  {
+    title: 'Star Pass + Pivot Boxed',
+    action: 'Execute star pass, then send the pivot (now acting jammer) to box.',
+    expected: '"STAR PASS + PIVOT IN BOX" critical alert. Pivot row shows box timer. Red critical indicator.',
+    bug: 'Box tracks physical Position(Pivot).PenaltyBox, not role. Verify box_entered_at_ms set for pivot position.',
+  },
+  {
+    title: 'Power Jam + Star Pass',
+    action: 'T1 jammer in box, then T2 executes a star pass while T1 is still boxed.',
+    expected: 'Power jam on T1 + star pass on T2 both show simultaneously. Labels on T2 swap correctly.',
+    bug: 'Combined state: power jam badge + star pass badge on T2 at same time. No badge collision.',
+  },
+  {
+    title: 'API Disconnect (kill API process)',
+    action: 'Stop the API server (Ctrl+C on the python process) while display is polling.',
+    expected: 'Red disconnect banner appears. Stale data shown. No JS crash. Error count increments.',
+    bug: 'Does poll loop crash permanently or continue retrying? Did the interval survive the error?',
+  },
+  {
+    title: 'Scoreboard Disconnect (keep API up)',
+    action: 'Stop the CRG scoreboard while API is running. API will return 503.',
+    expected: '"HTTP 503" alert fires. connected=false in /health. state_age_seconds grows.',
+    bug: 'Does state_age grow correctly? Does "frozen" detector fire? Does /live still return 200 with stale data?',
+  },
+  {
+    title: 'Rapid Score Changes',
+    action: 'Score 5+ points within 2 seconds on CRG.',
+    expected: 'Score increments correctly on each 200ms poll. +jam_score shows live accumulation.',
+    bug: 'Score regression detector: a corrected downward score should fire an alert, not silently skip.',
+  },
+  {
+    title: 'Null / Empty Skater',
+    action: 'Remove a skater from the lineup mid-jam in CRG (empty a position).',
+    expected: 'Name shows "—", number blank. Row still renders. No display corruption or JS error.',
+    bug: 'Null name/number path in buildSkaterRow. Check escHtml(null) is not called directly.',
+  },
+  {
+    title: 'Period End / State Transition',
+    action: 'Let period clock reach 0:00, or manually end the period.',
+    expected: 'period_clock_ms=0. game_state transitions from Running to Intermission or Final.',
+    bug: 'Period clock shows 0:00 not negative. game_state badge updates to correct colour.',
+  },
+  {
+    title: 'API Reconnect Recovery',
+    action: 'Kill and restart the API server quickly (~5 seconds down).',
+    expected: 'Error alerts during outage. Banner shows. On restart: banner clears, data resumes, req count continues.',
+    bug: 'No duplicate poll intervals started. latency array not corrupted. Error count stays incremented (not reset).',
+  },
+];
+
+function initScenariosUI() {
+  document.getElementById('scenario-grid').innerHTML = SCENARIOS.map(sc => `
+    <div class="sc-card">
+      <div class="sc-title">${escHtml(sc.title)}</div>
+      <div class="sc-do"><strong>Do:</strong> ${escHtml(sc.action)}</div>
+      <div class="sc-expect"><strong>Expect:</strong> ${escHtml(sc.expected)}</div>
+      <div class="sc-bug"><strong>Bug check:</strong> ${escHtml(sc.bug)}</div>
+    </div>
+  `).join('');
+}
+
+// ── Raw fetch ─────────────────────────────────────────────────────────────────
+async function fetchRaw() {
+  try {
+    const res  = await fetch(`${API_BASE}/raw`, { signal: AbortSignal.timeout(3000), cache: 'no-store' });
+    const data = await res.json();
+    document.getElementById('raw-output').value = JSON.stringify(data, null, 2);
+    setText('raw-last-fetch', `Last /raw: ${new Date().toLocaleTimeString()}`);
+  } catch (e) {
+    document.getElementById('raw-output').value = 'Error fetching /raw: ' + e.message;
+  }
+}
+
+document.getElementById('btn-auto-live').addEventListener('click', function () {
+  rawAutoLive  = !rawAutoLive;
+  this.textContent = rawAutoLive ? '■ Stop /live auto' : '▶ Auto /live';
+});
+
+// ── Health fetch ──────────────────────────────────────────────────────────────
+async function fetchHealth() {
+  try {
+    const res  = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2000), cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      setText('sb-version', data.scoreboard_version || '—');
+    }
+  } catch (_) { /* silent — health is best-effort */ }
+}
+
+// ── Main poll ─────────────────────────────────────────────────────────────────
+async function fetchLive() {
+  reqCount++;
+  const seq = ++reqSeq;
+  const t0  = performance.now();
+  try {
+    const res = await fetch(`${API_BASE}/live`, {
+      signal: AbortSignal.timeout(190),
+      cache:  'no-store',
+    });
+    const latency = Math.round(performance.now() - t0);
+    if (seq < reqSeq) return;   // discard stale response if a newer one already processed
+    trackLatency(latency);
+    if (!res.ok) {
+      errorCount++;
+      addAlert('critical', `HTTP ${res.status} from /live`, `http_${res.status}`);
+      updateHealthBar();
+      return;
+    }
+    const data = await res.json();
+    render(data);
+    runDetectors(data);
+    lastState = data;
+  } catch (e) {
+    if (seq < reqSeq) return;
+    errorCount++;
+    const name = (e.name === 'TimeoutError' || e.name === 'AbortError') ? 'timeout' : e.name;
+    addAlert('critical', `Fetch error: ${name}`, 'fetch_err');
+    // Keep health bar updated with error count even when fetch fails
+    updateHealthBar();
+    // Mark as disconnected in UI
+    const dot   = document.getElementById('conn-dot');
+    const label = document.getElementById('conn-label');
+    dot.className   = 'dot red';
+    label.className = 'red';
+    label.textContent = 'ERROR';
+  }
+}
+
+function startPolling() {
+  API_BASE = document.getElementById('api-url').value.trim().replace(/\/$/, '');
+  POLL_MS  = Math.max(100, parseInt(document.getElementById('poll-ms').value, 10) || 200);
+  localStorage.setItem('api_base', API_BASE);
+  localStorage.setItem('poll_ms', String(POLL_MS));
+  stopPolling();
+  fetchLive();
+  pollTimer = setInterval(fetchLive, POLL_MS);
+  setText('config-status', `Polling ${API_BASE} every ${POLL_MS}ms`);
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  setText('config-status', 'Stopped.');
+}
+
+// ── Initialisation ────────────────────────────────────────────────────────────
+initDetectorsUI();
+initScenariosUI();
+setInterval(fetchHealth, 5000);
+fetchHealth();
+startPolling();
+</script>
+</body>
+</html>
