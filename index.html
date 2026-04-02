@@ -18,8 +18,9 @@
       background: #2a2a2a; color: #e0e0e0; border: 1px solid #444;
       padding: 3px 6px; font-family: inherit; font-size: 12px;
     }
-    #api-url { width: 220px; }
-    #poll-ms  { width: 60px; }
+    #api-url     { width: 220px; }
+    #poll-ms     { width: 60px; }
+    #timeout-ms  { width: 60px; }
     .btn {
       background: #222; color: #bbb; border: 1px solid #444;
       padding: 4px 10px; cursor: pointer; font-family: inherit; font-size: 12px;
@@ -189,6 +190,8 @@
   <input id="api-url" type="text" placeholder="http://localhost:5001" />
   <label for="poll-ms">Poll (ms):</label>
   <input id="poll-ms" type="number" min="100" max="5000" step="50" />
+  <label for="timeout-ms">Timeout (ms):</label>
+  <input id="timeout-ms" type="number" min="500" max="30000" step="500" />
   <button class="btn btn-connect"    onclick="startPolling()">Connect</button>
   <button class="btn btn-disconnect" onclick="stopPolling()">Disconnect</button>
   <span id="config-status"></span>
@@ -293,10 +296,12 @@
 'use strict';
 
 // ── Config & persistent state ────────────────────────────────────────────────
-let API_BASE = localStorage.getItem('api_base') || 'http://localhost:5001';
-let POLL_MS  = parseInt(localStorage.getItem('poll_ms') || '200', 10);
-document.getElementById('api-url').value = API_BASE;
-document.getElementById('poll-ms').value = POLL_MS;
+let API_BASE         = localStorage.getItem('api_base') || 'http://localhost:5001';
+let POLL_MS          = parseInt(localStorage.getItem('poll_ms')          || '200',  10);
+let FETCH_TIMEOUT_MS = parseInt(localStorage.getItem('fetch_timeout_ms') || '2000', 10);
+document.getElementById('api-url').value    = API_BASE;
+document.getElementById('poll-ms').value    = POLL_MS;
+document.getElementById('timeout-ms').value = FETCH_TIMEOUT_MS;
 
 let pollTimer    = null;
 let lastState    = null;
@@ -498,11 +503,13 @@ function renderTeam(pfx, team, inJam, powerJam) {
 }
 
 function buildSkaterRow(pos, skater, starPass) {
-  // Star pass: pivot becomes acting jammer, jammer becomes acting pivot
+  // After a star pass the API has already swapped jammer↔pivot in the data,
+  // so team.jammer is always the current jammer.  The former jammer sits in
+  // the pivot slot but is now skating as a blocker — label them accordingly.
   let label = pos.replace(/blocker(\d)/, 'B$1').toUpperCase();
   if (starPass) {
-    if (pos === 'jammer') label = 'PIVOT (SP)';
-    else if (pos === 'pivot') label = 'JAMMER (SP)';
+    if (pos === 'jammer') label = 'JAMMER (SP)';
+    else if (pos === 'pivot') label = 'BLOCKER (SP)';
   }
 
   const inBox    = skater.in_box;
@@ -781,7 +788,7 @@ function initScenariosUI() {
 // ── Raw fetch ─────────────────────────────────────────────────────────────────
 async function fetchRaw() {
   try {
-    const res  = await fetch(`${API_BASE}/raw`, { signal: AbortSignal.timeout(3000), cache: 'no-store' });
+    const res  = await fetch(`${API_BASE}/raw`, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), cache: 'no-store' });
     const data = await res.json();
     document.getElementById('raw-output').value = JSON.stringify(data, null, 2);
     setText('raw-last-fetch', `Last /raw: ${new Date().toLocaleTimeString()}`);
@@ -798,7 +805,7 @@ document.getElementById('btn-auto-live').addEventListener('click', function () {
 // ── Health fetch ──────────────────────────────────────────────────────────────
 async function fetchHealth() {
   try {
-    const res  = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2000), cache: 'no-store' });
+    const res  = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), cache: 'no-store' });
     if (res.ok) {
       const data = await res.json();
       setText('sb-version', data.scoreboard_version || '—');
@@ -813,7 +820,7 @@ async function fetchLive() {
   const t0  = performance.now();
   try {
     const res = await fetch(`${API_BASE}/live`, {
-      signal: AbortSignal.timeout(190),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       cache:  'no-store',
     });
     const latency = Math.round(performance.now() - t0);
@@ -846,10 +853,12 @@ async function fetchLive() {
 }
 
 function startPolling() {
-  API_BASE = document.getElementById('api-url').value.trim().replace(/\/$/, '');
-  POLL_MS  = Math.max(100, parseInt(document.getElementById('poll-ms').value, 10) || 200);
-  localStorage.setItem('api_base', API_BASE);
-  localStorage.setItem('poll_ms', String(POLL_MS));
+  API_BASE         = document.getElementById('api-url').value.trim().replace(/\/$/, '');
+  POLL_MS          = Math.max(100, parseInt(document.getElementById('poll-ms').value,    10) || 200);
+  FETCH_TIMEOUT_MS = Math.max(500, parseInt(document.getElementById('timeout-ms').value, 10) || 2000);
+  localStorage.setItem('api_base',         API_BASE);
+  localStorage.setItem('poll_ms',          String(POLL_MS));
+  localStorage.setItem('fetch_timeout_ms', String(FETCH_TIMEOUT_MS));
   stopPolling();
   fetchLive();
   pollTimer = setInterval(fetchLive, POLL_MS);
