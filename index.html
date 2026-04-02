@@ -222,7 +222,7 @@
 </div>
 
 <!-- ── 4. Timeout banner ────────────────────────────────────────────────── -->
-<div id="timeout-banner">TIMEOUT</div>
+<div id="timeout-banner">TIMEOUT <span id="timeout-clock"></span></div>
 
 <!-- ── 5. Game meta / clocks ─────────────────────────────────────────────── -->
 <div id="game-meta">
@@ -454,7 +454,9 @@ function render(s) {
     : gsLow === 'final' || gsLow === 'postgame' ? 'state-final'
     : '';
 
-  document.getElementById('timeout-banner').classList.toggle('visible', !!s.timeout_type);
+  const timeoutActive = !!s.timeout_type;
+  document.getElementById('timeout-banner').classList.toggle('visible', timeoutActive);
+  setText('timeout-clock', timeoutActive && s.timeout_clock_ms != null ? msToTime(s.timeout_clock_ms) : '');
 
   setText('period-jam', `P${s.period ?? '—'}  J${s.jam ?? '—'}`);
 
