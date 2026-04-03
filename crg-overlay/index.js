@@ -38,6 +38,10 @@
     // CSS (!important) and only flip to black if white fails 4.5:1 vs the bg.
     var bgColour = bg || '#333333';
     wcagCheckRosterNumber(teamNum, bgColour);
+
+    // WCAG: indicator symbol (star pass SP / lead ★) — CRG sets
+    // color:overlay.fg on the .Indicator div. Check it against overlay.bg.
+    if (fg && bg) wcagCheckIndicator(teamNum, fg, bg);
   }
 
   applyTeam(1, 'home', 'homebg');
@@ -116,6 +120,38 @@ function wcagCheckRosterNumber(teamNum, bgColour) {
     el.id = styleId;
     el.textContent =
       '.RosterTeam [Team="' + teamNum + '"] .Number { color: #000000 !important; }';
+    document.head.appendChild(el);
+  }
+}
+
+// ── Indicator symbol contrast ─────────────────────────────────
+// CRG sets color:overlay.fg on the .Indicator div (the small square
+// showing ★ / SP). If overlay.fg and overlay.bg are similar hues the
+// symbol becomes invisible. We pick white or black as the best override.
+var INDICATOR_STYLE_ID = 'derby-indicator-style';
+
+function wcagCheckIndicator(teamNum, fgColour, bgColour) {
+  // Try overlay.fg first (what CRG uses), then white, then black
+  var candidates = [fgColour, '#ffffff', '#000000'];
+  var best = fgColour;
+  var bestRatio = 0;
+
+  for (var i = 0; i < candidates.length; i++) {
+    var ratio = contrastRatio(candidates[i], bgColour);
+    if (ratio > bestRatio) { bestRatio = ratio; best = candidates[i]; }
+    if (ratio >= 4.5) break;
+  }
+
+  var styleId = INDICATOR_STYLE_ID + '-t' + teamNum;
+  var existing = document.getElementById(styleId);
+  if (existing) existing.remove();
+
+  // Only inject if overlay.fg itself fails — otherwise leave CRG's inline style alone
+  if (best !== fgColour) {
+    var el = document.createElement('style');
+    el.id = styleId;
+    el.textContent =
+      '[Team="' + teamNum + '"] .Indicator { color: ' + best + ' !important; }';
     document.head.appendChild(el);
   }
 }

@@ -13,23 +13,32 @@ div { white-space: nowrap; display: block; padding: 0; margin: 0; overflow: hidd
 
 .preload * { transition: none !important; }
 
-/* Score bar colours – set via --team1-bar / --team2-bar CSS variables.
+/* Team score bar colours – set via --team1-bar / --team2-bar CSS variables.
    JS injects these from URL params (?home=hex&away=hex).
    Default is dark so the overlay looks fine with no params.
-   Text is always white regardless of bar colour. */
+   Text is always white regardless of bar colour.
+   Only scoped inside [Team] so the clock box is NOT affected. */
 :root {
   --team1-bar: #1c1c1c;
   --team2-bar: #0a0a0a;
 }
 
-.barBackgroundTop,
 [Team="1"] .barBackground {
   background: var(--team1-bar);
   color: #ffffff;
 }
-.barBackgroundBottom,
 [Team="2"] .barBackground {
   background: var(--team2-bar);
+  color: #ffffff;
+}
+
+/* Clock box bar rows – always dark, never team-coloured */
+.barBackgroundTop {
+  background: #1c1c1c;
+  color: #ffffff;
+}
+.barBackgroundBottom {
+  background: #0a0a0a;
   color: #ffffff;
 }
 
