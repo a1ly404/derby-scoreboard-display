@@ -31,6 +31,13 @@
       // WCAG: pick readable flash colour for the lead jammer star
       wcagCheckLeadFlash(teamNum, fg);
     }
+
+    // WCAG: roster number box text — check against the swatch/bg colour.
+    // CRG's sbCss sets color:overlay.fg inline on .Number, which would be
+    // the team bar colour (often unreadable). We force white by default in
+    // CSS (!important) and only flip to black if white fails 4.5:1 vs the bg.
+    var bgColour = bg || '#333333';
+    wcagCheckRosterNumber(teamNum, bgColour);
   }
 
   applyTeam(1, 'home', 'homebg');
@@ -79,6 +86,38 @@ function contrastRatio(hex1, hex2) {
   var lighter = Math.max(l1, l2);
   var darker  = Math.min(l1, l2);
   return (lighter + 0.05) / (darker + 0.05);
+}
+
+// ── Roster number text contrast ───────────────────────────────
+// CRG injects color:overlay.fg as an inline style on each .Number
+// cell in the roster panel. We override this with CSS !important
+// (always white) and only inject a !important black override if
+// white fails WCAG 4.5:1 contrast against the swatch background.
+var ROSTER_NUM_STYLE_ID = 'derby-roster-num-style';
+
+function wcagCheckRosterNumber(teamNum, bgColour) {
+  var textColour = contrastRatio('#ffffff', bgColour) >= 4.5 ? '#ffffff' : '#000000';
+
+  if (contrastRatio(textColour, bgColour) < 4.5) {
+    console.warn(
+      'Derby overlay: Team ' + teamNum + ' roster number contrast is ' +
+      contrastRatio(textColour, bgColour).toFixed(2) + ':1 against ' + bgColour +
+      '. Neither white nor black passes WCAG AA.'
+    );
+  }
+
+  var styleId = ROSTER_NUM_STYLE_ID + '-t' + teamNum;
+  var existing = document.getElementById(styleId);
+  if (existing) existing.remove();
+
+  // Only inject if we need black — white is already the default via CSS
+  if (textColour !== '#ffffff') {
+    var el = document.createElement('style');
+    el.id = styleId;
+    el.textContent =
+      '.RosterTeam [Team="' + teamNum + '"] .Number { color: #000000 !important; }';
+    document.head.appendChild(el);
+  }
 }
 
 // ── Lead flash contrast ─────────────────────────────────────────

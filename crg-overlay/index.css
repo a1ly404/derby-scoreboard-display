@@ -228,7 +228,7 @@ div.AnimatedPanel.AnimationDelay { transition: transform 1s ease-in-out .3s; }
 .RosterTeam .Team .Skater .Number,
 .RosterTeam .Team .Skater .Flags,
 .RosterTeam .Team .Skater .Name { min-height: 1.7em; max-height: 1.7em; float: left; overflow: hidden; }
-.RosterTeam .Team .Skater .Number { width: 15%; background: #333; color: white; text-align: center; }
+.RosterTeam .Team .Skater .Number { width: 15%; background: #333; color: white !important; text-align: center; }
 .RosterTeam .Team .Skater .Name   { width: 72%; }
 .RosterTeam .Team .Skater .Flags  { width: 8%; float: left; vertical-align: middle; text-align: center; border-radius: 5px; color: #aaa; }
 .RosterTeam .Team .Skater .Flags[data-flag="C"]:after  { content: 'C'; visibility: visible; }
