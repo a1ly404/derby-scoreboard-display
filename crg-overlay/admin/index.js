@@ -15,30 +15,7 @@ var leaguePresets = {
 };
 
 // ─────────────────────────────────────────────
-// WCAG helpers (mirrored from index.js so admin
-// can compute contrast without touching the iframe)
-// ─────────────────────────────────────────────
-function _adminHexToRgb(hex) {
-  var clean = hex.replace('#', '');
-  if (clean.length === 3) clean = clean.split('').map(function(c){ return c+c; }).join('');
-  return { r: parseInt(clean.slice(0,2),16), g: parseInt(clean.slice(2,4),16), b: parseInt(clean.slice(4,6),16) };
-}
-function _adminLuminance(rgb) {
-  return [rgb.r, rgb.g, rgb.b].reduce(function(acc, v, i) {
-    v = v / 255;
-    v = v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
-    return acc + v * [0.2126, 0.7152, 0.0722][i];
-  }, 0);
-}
-function _adminContrast(hex1, hex2) {
-  var l1 = _adminLuminance(_adminHexToRgb(hex1));
-  var l2 = _adminLuminance(_adminHexToRgb(hex2));
-  return (Math.max(l1,l2) + 0.05) / (Math.min(l1,l2) + 0.05);
-}
-function _adminBestText(barHex) {
-  return _adminContrast('#ffffff', barHex) >= _adminContrast('#000000', barHex) ? '#ffffff' : '#000000';
-}
-
+// Push bar colour into the preview iframe's CSS
 // ─────────────────────────────────────────────
 // Push bar colour into the preview iframe's CSS
 // variables so the live preview reflects the choice
@@ -49,7 +26,6 @@ function pushBarColourToPreview(team, fgHex) {
   if (!iframe || !iframe.contentDocument) return;
   var root = iframe.contentDocument.documentElement;
   root.style.setProperty('--team' + team + '-bar', fgHex);
-  root.style.setProperty('--team' + team + '-text', _adminBestText(fgHex));
 }
 
 function applyLeaguePreset(team, leagueKey) {

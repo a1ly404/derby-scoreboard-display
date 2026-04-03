@@ -15,23 +15,22 @@ div { white-space: nowrap; display: block; padding: 0; margin: 0; overflow: hidd
 
 /* Score bar colours – set via --team1-bar / --team2-bar CSS variables.
    JS injects these from URL params (?home=hex&away=hex).
-   Default is dark so the overlay looks fine with no params. */
+   Default is dark so the overlay looks fine with no params.
+   Text is always white regardless of bar colour. */
 :root {
   --team1-bar: #1c1c1c;
   --team2-bar: #0a0a0a;
-  --team1-text: #ffffff;
-  --team2-text: #ffffff;
 }
 
 .barBackgroundTop,
 [Team="1"] .barBackground {
   background: var(--team1-bar);
-  color: var(--team1-text);
+  color: #ffffff;
 }
 .barBackgroundBottom,
 [Team="2"] .barBackground {
   background: var(--team2-bar);
-  color: var(--team2-text);
+  color: #ffffff;
 }
 
 div.Wrapper .TextLeft  { text-align: left  !important; }

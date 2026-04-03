@@ -28,9 +28,6 @@
       // Set the full bar row background via CSS custom property
       document.documentElement.style.setProperty('--team' + teamNum + '-bar', fg);
 
-      // WCAG: pick readable text colour (white or black) for team name + score
-      wcagCheckBarText(teamNum, fg);
-
       // WCAG: pick readable flash colour for the lead jammer star
       wcagCheckLeadFlash(teamNum, fg);
     }
@@ -82,39 +79,6 @@ function contrastRatio(hex1, hex2) {
   var lighter = Math.max(l1, l2);
   var darker  = Math.min(l1, l2);
   return (lighter + 0.05) / (darker + 0.05);
-}
-
-// ── Bar text contrast ───────────────────────────────────────────
-// Checks whether white or black text is more readable (WCAG 4.5:1)
-// on the team bar colour, then sets --teamN-text accordingly.
-// Falls through to the best available option if neither hits 4.5:1
-// (warns to console).
-function wcagCheckBarText(teamNum, barColour) {
-  var candidates = ['#ffffff', '#000000'];
-  var best = '#ffffff';
-  var bestRatio = 0;
-
-  for (var i = 0; i < candidates.length; i++) {
-    var ratio = contrastRatio(candidates[i], barColour);
-    if (ratio > bestRatio) {
-      bestRatio = ratio;
-      best = candidates[i];
-    }
-    if (ratio >= 4.5) {
-      best = candidates[i];
-      break;
-    }
-  }
-
-  if (bestRatio < 4.5) {
-    console.warn(
-      'Derby overlay: Team ' + teamNum + ' bar text contrast is ' +
-      bestRatio.toFixed(2) + ':1 (WCAG AA requires 4.5:1). ' +
-      'Bar colour: ' + barColour + ', Text colour: ' + best
-    );
-  }
-
-  document.documentElement.style.setProperty('--team' + teamNum + '-text', best);
 }
 
 // ── Lead flash contrast ─────────────────────────────────────────
