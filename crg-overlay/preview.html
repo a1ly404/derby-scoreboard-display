@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Derby Overlay – Static Preview</title>
+  <link rel="stylesheet" href="index.css" type="text/css" />
+  <style>
+    body {
+      background: #00cc44; /* green chroma key so you can see transparency */
+      width: 1920px;
+      height: 1080px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ── Simulate the CRG sbCss team colour injection ── */
+    /* Team 1: Denver */
+    [Team="1"] .Indicator  { background: #1f3264 !important; color: #fff !important; }
+    [Team="1"] .JammerBox  { background: #1f3264 !important; color: #fff !important; }
+    /* Team 2: Saskatoon */
+    [Team="2"] .Indicator  { background: #ff2100 !important; color: #fff !important; }
+    [Team="2"] .JammerBox  { background: #ff2100 !important; color: #fff !important; }
+
+    /* ── Force panels visible for preview ── */
+    .PanelHideTop  { transform: translateY(5%) !important; }
+    .PanelHideTop.Show { transform: translateY(5%) !important; }
+    .TopClock { transform: translateY(5%) !important; }
+
+    /* force show score/clock */
+    .Clock { margin-left: 0 !important; }
+    .SlideDown { max-height: 4em !important; }
+    .ClockBarMiddle { display: none; }
+  </style>
+</head>
+<body>
+  <div id="sb" class="JamScore StyleTraditional">
+
+    <!-- ══ SCORE BAR ══ -->
+    <div class="PanelWrapperTop">
+      <div class="TeamBox AnimatedPanel PanelHideTop Wrapper Show">
+
+        <!-- Team 1 -->
+        <div Team="1">
+          <div class="Indicator Box" style="background:#1f3264;color:#fff;">
+            <!-- lead indicator -->
+          </div>
+          <div class="Team Row barBackground">
+            <div class="Name VerticalCenter Box">Denver</div>
+            <div class="Score VerticalCenter Box">42</div>
+            <div class="Mini Box"><div class="JamScore">3</div></div>
+            <div class="DotTimeouts Box">
+              <div class="Dot Timeout1"></div>
+              <div class="Dot Timeout2"></div>
+              <div class="Dot Timeout3 Used"></div>
+              <div class="Dot OfficialReview1"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Team 2 -->
+        <div Team="2">
+          <div class="Indicator Box" style="background:#ff2100;color:#fff;">
+            ★
+          </div>
+          <div class="Team Row barBackground">
+            <div class="Name VerticalCenter Box">Saskatoon</div>
+            <div class="Score VerticalCenter Box">38</div>
+            <div class="Mini Box"><div class="JamScore">5</div></div>
+            <div class="DotTimeouts Box">
+              <div class="Dot Timeout1"></div>
+              <div class="Dot Timeout2 Used"></div>
+              <div class="Dot Timeout3 Used"></div>
+              <div class="Dot OfficialReview1 Used"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ══ CLOCK BOX ══ -->
+      <div class="ClockBox TopClock AnimatedPanel Wrapper Show" style="top:2%;right:5rem;">
+        <div class="ClockBarTop Wrapper Row SlideDown ClockNames barBackgroundTop" style="max-height:2em;">
+          <div class="Box TextLeft Name">P2</div>
+          <div class="Box TextRight Clock Show Name">J14</div>
+        </div>
+        <div class="ClockBarBottom Wrapper SlideDown Row BottomRow barBackgroundBottom" style="max-height:2em;">
+          <div class="Box TextLeft Time Clock Show">14:23</div>
+          <div class="Box TextRight Time Clock Show">1:07</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ LOWER THIRD (sample) ══ -->
+    <div class="PanelWrapperLeft">
+      <div class="LowerThird Wrapper OverlayPanel AnimatedPanel Show" style="top:80%;left:0;transform:translateY(0);">
+        <h4 class="Line1">#42 Jane Fury</h4>
+        <h5 class="Line2" style="background:#1f3264;color:#fff;">Denver Roller Derby</h5>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
