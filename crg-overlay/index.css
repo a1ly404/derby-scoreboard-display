@@ -14,32 +14,38 @@ div { white-space: nowrap; display: block; padding: 0; margin: 0; overflow: hidd
 .preload * { transition: none !important; }
 
 /* Team score bar colours – set via --team1-bar / --team2-bar CSS variables.
-   JS injects these from URL params (?home=hex&away=hex).
-   Default is dark so the overlay looks fine with no params.
-   Text is always white regardless of bar colour.
-   Only scoped inside [Team] so the clock box is NOT affected. */
+   Default is the stock silver gradient so it looks like the CRG default when
+   no URL params are given. JS injects ?home=hex&away=hex to override.
+   --teamN-text defaults to black (readable on silver); JS flips to white
+   when a dark team colour is set. */
 :root {
-  --team1-bar: #1c1c1c;
-  --team2-bar: #0a0a0a;
+  --team1-bar: linear-gradient(to bottom, #eee, #ddd 30%, #ccc 60%, #bbb);
+  --team2-bar: linear-gradient(to bottom, #bbb, #ccc 30%, #ddd 60%, #eee);
+  --team1-text: #000000;
+  --team2-text: #000000;
 }
 
 [Team="1"] .barBackground {
+  background: silver;
   background: var(--team1-bar);
-  color: #ffffff;
+  color: var(--team1-text);
 }
 [Team="2"] .barBackground {
+  background: silver;
   background: var(--team2-bar);
-  color: #ffffff;
+  color: var(--team2-text);
 }
 
-/* Clock box bar rows – always dark, never team-coloured */
+/* Clock box bar rows – always stock silver, never team-coloured */
 .barBackgroundTop {
-  background: #1c1c1c;
-  color: #ffffff;
+  background: silver;
+  background: linear-gradient(to bottom, #eee, #ddd 30%, #ccc 60%, #bbb);
+  color: #000000;
 }
 .barBackgroundBottom {
-  background: #0a0a0a;
-  color: #ffffff;
+  background: silver;
+  background: linear-gradient(to bottom, #bbb, #ccc 30%, #ddd 60%, #eee);
+  color: #000000;
 }
 
 div.Wrapper .TextLeft  { text-align: left  !important; }
@@ -57,22 +63,22 @@ div.AnimatedPanel.AnimationDelay { transition: transform 1s ease-in-out .3s; }
 .TeamBox.Lineups.UseLT:not(.ShowNames) { max-width: 35em; }
 .TeamBox:not(.Lineups.UseLT) { width: 23em; }
 
-/* indicator – uses team's Color(overlay.fg/bg) set at game time */
+/* indicator – background and text match the team bar. Overrides CRG's sbCss inline styles. */
 .TeamBox .Indicator { width: 1.6em; height: 1.3em; text-align: center; font-size: 75%; }
-.TeamBox [Team="1"] .Indicator { border-radius: 8px 0 0 0; }
-.TeamBox [Team="2"] .Indicator { border-radius: 0 0 0 8px; }
+.TeamBox [Team="1"] .Indicator { border-radius: 8px 0 0 0; background: var(--team1-bar) !important; color: var(--team1-text) !important; }
+.TeamBox [Team="2"] .Indicator { border-radius: 0 0 0 8px; background: var(--team2-bar) !important; color: var(--team2-text) !important; }
 .TeamBox.Lineups.UseLT .Indicator { display: none; }
 
 /* main area – background comes from .barBackground above */
 .TeamBox .Team { width: 12em; float: left; transition: border-radius 1s; }
-.TeamBox .Team { border-right: 2px solid #444; }
+.TeamBox .Team { border-right: 2px solid rgba(128,128,128,0.4); }
 .TeamBox [Team="1"] .Team { border-radius: 0 8px 0 0; }
 .TeamBox [Team="2"] .Team { border-radius: 0 0 8px 0; }
 .TeamBox.Lineups.UseLT [Team="1"] .Team { border-radius: 8px 0 0 0; }
 .TeamBox.Lineups.UseLT [Team="2"] .Team { border-radius: 0 0 0 8px; }
 .TeamBox:not(.Lineups.UseLT).ShowJammers.InJam .Team { border-radius: 0; }
 
-.TeamBox .Team .Name  { text-align: left; overflow: hidden; font-size: 80%; width: 67%; padding-left: 2%; border-left: 2px solid rgba(255,255,255,0.25); color: inherit; }
+.TeamBox .Team .Name  { text-align: left; overflow: hidden; font-size: 80%; width: 67%; padding-left: 2%; border-left: 2px solid rgba(128,128,128,0.4); color: inherit; }
 .TeamBox .Team .Score { width: 18%; text-align: right; padding-right: .1em; font-size: 90%; color: inherit; }
 .TeamBox .Team .Mini  { width: 8%; font-size: 45%; line-height: 99%; padding-top: 12px; }
 .TeamBox .Team .Mini .JamScore { width: 100%; text-align: center; color: inherit; }
@@ -87,9 +93,11 @@ div.AnimatedPanel.AnimationDelay { transition: transform 1s ease-in-out .3s; }
   0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; }
 }
 
-/* lineup / jammer area – uses team Color(overlay.fg/bg) set at game time */
+/* lineup / jammer area – matches team bar colour and text colour */
 .TeamBox .JammerWrapper { overflow: hidden; }
-.TeamBox .JammerBox { padding-right: 20px; width: calc(100% - 20px); height: 50%; text-align: right; font-size: 50%; border-radius: 0 8px 8px 0; }
+.TeamBox .JammerBox { padding-right: 20px; width: calc(100% - 20px); height: 50%; text-align: right; font-size: 50%; border-radius: 0 8px 8px 0; background: #333; color: white; }
+[Team="1"] .JammerBox { background: var(--team1-bar) !important; color: var(--team1-text) !important; }
+[Team="2"] .JammerBox { background: var(--team2-bar) !important; color: var(--team2-text) !important; }
 .TeamBox.Lineups.UseLT .JammerBox { display: flex; }
 
 .JammerBox, .JammerBox.Show { margin-left: -100%; }

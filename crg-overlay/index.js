@@ -25,8 +25,12 @@
     if (bg) WS.Set('ScoreBoard.CurrentGame.Team(' + teamNum + ').Color(overlay.bg)', bg);
 
     if (fg) {
-      // Set the full bar row background via CSS custom property
+      // Set the full bar row background via CSS custom property (flat colour, no gradient)
       document.documentElement.style.setProperty('--team' + teamNum + '-bar', fg);
+
+      // WCAG: pick white or black text for team name + score against the bar colour
+      var textColour = contrastRatio('#ffffff', fg) >= 4.5 ? '#ffffff' : '#000000';
+      document.documentElement.style.setProperty('--team' + teamNum + '-text', textColour);
 
       // WCAG: pick readable flash colour for the lead jammer star
       wcagCheckLeadFlash(teamNum, fg);
@@ -43,29 +47,6 @@
   applyTeam(1, 'home', 'homebg');
   applyTeam(2, 'away', 'awaybg');
 })();
-
-// ─────────────────────────────────────────────────────────────────
-// WCAG: Indicator symbol contrast — runs reactively via WebSocket.
-//
-// The .Indicator box (showing ★ / SP / blank) gets its colour from
-// CRG's sbCss binding: color=overlay.fg, background=overlay.bg.
-// We register for both colour keys and re-check whenever either
-// changes — this works whether colours come from URL params or the
-// admin panel, and even when no URL params are given at all.
-// ─────────────────────────────────────────────────────────────────
-WS.Register([
-  'ScoreBoard.CurrentGame.Team(1).Color(overlay.fg)',
-  'ScoreBoard.CurrentGame.Team(1).Color(overlay.bg)',
-  'ScoreBoard.CurrentGame.Team(2).Color(overlay.fg)',
-  'ScoreBoard.CurrentGame.Team(2).Color(overlay.bg)',
-], function() {
-  [1, 2].forEach(function(teamNum) {
-    var fg = WS.state['ScoreBoard.CurrentGame.Team(' + teamNum + ').Color(overlay.fg)'];
-    var bg = WS.state['ScoreBoard.CurrentGame.Team(' + teamNum + ').Color(overlay.bg)'];
-    if (fg && bg) wcagCheckIndicator(teamNum, fg, bg);
-  });
-});
-
 
 // ═══════════════════════════════════════════════════════════════
 // WCAG CONTRAST UTILITIES
@@ -138,38 +119,6 @@ function wcagCheckRosterNumber(teamNum, bgColour) {
     el.id = styleId;
     el.textContent =
       '.RosterTeam [Team="' + teamNum + '"] .Number { color: #000000 !important; }';
-    document.head.appendChild(el);
-  }
-}
-
-// ── Indicator symbol contrast ─────────────────────────────────
-// CRG sets color:overlay.fg on the .Indicator div (the small square
-// showing ★ / SP). If overlay.fg and overlay.bg are similar hues the
-// symbol becomes invisible. We pick white or black as the best override.
-var INDICATOR_STYLE_ID = 'derby-indicator-style';
-
-function wcagCheckIndicator(teamNum, fgColour, bgColour) {
-  // Try overlay.fg first (what CRG uses), then white, then black
-  var candidates = [fgColour, '#ffffff', '#000000'];
-  var best = fgColour;
-  var bestRatio = 0;
-
-  for (var i = 0; i < candidates.length; i++) {
-    var ratio = contrastRatio(candidates[i], bgColour);
-    if (ratio > bestRatio) { bestRatio = ratio; best = candidates[i]; }
-    if (ratio >= 4.5) break;
-  }
-
-  var styleId = INDICATOR_STYLE_ID + '-t' + teamNum;
-  var existing = document.getElementById(styleId);
-  if (existing) existing.remove();
-
-  // Only inject if overlay.fg itself fails — otherwise leave CRG's inline style alone
-  if (best !== fgColour) {
-    var el = document.createElement('style');
-    el.id = styleId;
-    el.textContent =
-      '[Team="' + teamNum + '"] .Indicator { color: ' + best + ' !important; }';
     document.head.appendChild(el);
   }
 }
