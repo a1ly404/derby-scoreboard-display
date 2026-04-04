@@ -104,7 +104,7 @@ div.AnimatedPanel.AnimationDelay { transition: transform 1s ease-in-out .3s; }
 .ShowJammers .JammerBox.Show, .Lineups.UseLT.PenaltyClocks .JammerBox { margin-left: 0; z-Index: -3; }
 .TeamBox .JammerBox { float: left; transition: margin-left 2s; }
 
-.TeamBox .JammerBox>div { font-size: 80%; padding: 0px 2px; min-height: 100%; flex: 1; display: flex; justify-content: space-around; }
+.TeamBox .JammerBox>div { font-size: 100%; padding: 0px 2px; min-height: 100%; flex: 1; display: flex; justify-content: space-around; }
 .TeamBox.Lineups.UseLT .JammerBox>div { border-right: solid rgba(255,255,255,0.25) 1px; }
 .TeamBox.Lineups.UseLT .JammerBox>:last-child>div { border-right: none; }
 .TeamBox.Lineups.UseLT .JammerBox .Penalized:not(.InBox) { background-color: var(--element-unserved-bg); color: var(--element-unserved-fg); }
@@ -138,7 +138,7 @@ div.AnimatedPanel.AnimationDelay { transition: transform 1s ease-in-out .3s; }
 
 .SlideDown { transition: max-height 1s ease; width: 100%; overflow: hidden; padding: 0; max-height: 0; }
 
-.ClockBarTop { padding: 0; font-size: 1.4em; width: 100%; padding: 2% 5%; max-height: 2em; color: #ffffff; }
+.ClockBarTop { padding: 0; font-size: 1.4em; width: 100%; padding: 2% 5%; max-height: 2em; color: #000000; }
 .ClockNames { width: 100%; font-size: 1.7em; }
 .ClockNames > .Box { float: left; text-align: center; }
 .ClockBox .Name { width: 49%; }
@@ -148,7 +148,7 @@ div.AnimatedPanel.AnimationDelay { transition: transform 1s ease-in-out .3s; }
 .ClockBox .ClockDescription { width: 100%; color: white; font-size: 1em; text-align: center; text-transform: uppercase; width: 100%; }
 .ClockBox .ClockDescription.Show { padding: 2px 0; }
 
-.ClockBarBottom { font-size: 1.7em; color: #ffffff; }
+.ClockBarBottom { font-size: 1.7em; color: #000000; }
 .ClockBarBottom.SlideDown.Show { max-height: 2em; }
 .BottomRow { border-radius: 0 0 10px 10px; width: 100%; padding: 2% 5%; }
 .ClockBox .Time.TextLeft { width: 55%; }
