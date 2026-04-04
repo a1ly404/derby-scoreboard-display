@@ -36,17 +36,35 @@
     // CRG's sbCss sets color:overlay.fg inline on .Number, which would be
     // the team bar colour (often unreadable). We force white by default in
     // CSS (!important) and only flip to black if white fails 4.5:1 vs the bg.
-    var bgColour = bg || '#333333';
+    var bgColour = bg || '#000000';
     wcagCheckRosterNumber(teamNum, bgColour);
-
-    // WCAG: indicator symbol (star pass SP / lead ★) — CRG sets
-    // color:overlay.fg on the .Indicator div. Check it against overlay.bg.
-    if (fg && bg) wcagCheckIndicator(teamNum, fg, bg);
   }
 
   applyTeam(1, 'home', 'homebg');
   applyTeam(2, 'away', 'awaybg');
 })();
+
+// ─────────────────────────────────────────────────────────────────
+// WCAG: Indicator symbol contrast — runs reactively via WebSocket.
+//
+// The .Indicator box (showing ★ / SP / blank) gets its colour from
+// CRG's sbCss binding: color=overlay.fg, background=overlay.bg.
+// We register for both colour keys and re-check whenever either
+// changes — this works whether colours come from URL params or the
+// admin panel, and even when no URL params are given at all.
+// ─────────────────────────────────────────────────────────────────
+WS.Register([
+  'ScoreBoard.CurrentGame.Team(1).Color(overlay.fg)',
+  'ScoreBoard.CurrentGame.Team(1).Color(overlay.bg)',
+  'ScoreBoard.CurrentGame.Team(2).Color(overlay.fg)',
+  'ScoreBoard.CurrentGame.Team(2).Color(overlay.bg)',
+], function() {
+  [1, 2].forEach(function(teamNum) {
+    var fg = WS.state['ScoreBoard.CurrentGame.Team(' + teamNum + ').Color(overlay.fg)'];
+    var bg = WS.state['ScoreBoard.CurrentGame.Team(' + teamNum + ').Color(overlay.bg)'];
+    if (fg && bg) wcagCheckIndicator(teamNum, fg, bg);
+  });
+});
 
 
 // ═══════════════════════════════════════════════════════════════
