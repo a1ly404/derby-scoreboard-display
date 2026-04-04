@@ -6,7 +6,8 @@
 
 /* General look */
 html { height: 100%; width: 100%; }
-body { font-weight: bold; margin: 0; padding: 0; overflow: hidden; }
+/* Faux-DIN: Inter Condensed with tight tracking mimics DIN 1451 Engschrift */
+body { font-family: 'InterDisplay', 'Inter', 'Liberation Sans', sans-serif; font-weight: bold; font-stretch: condensed; letter-spacing: -0.01em; margin: 0; padding: 0; overflow: hidden; }
 div { white-space: nowrap; display: block; padding: 0; margin: 0; overflow: hidden; }
 .Wrapper { clear: both; box-sizing: border-box; }
 .Box { float: left; margin: 0; padding: 0; position: relative; display: block; }
@@ -19,9 +20,12 @@ div { white-space: nowrap; display: block; padding: 0; margin: 0; overflow: hidd
    --teamN-text defaults to black (readable on silver); JS flips to white
    when a dark team colour is set. */
 :root {
-  --team1-bar: linear-gradient(to bottom, #eee, #ddd 30%, #ccc 60%, #bbb);
-  --team2-bar: linear-gradient(to bottom, #bbb, #ccc 30%, #ddd 60%, #eee);
-  --team1-text: #000000;
+  /* Default: stock CRG silver gradient — identical to the base overlay.
+     Overridden by JS when ?home= / ?away= URL params are present or
+     when colours are pushed from the admin panel via WS. */
+  --team1-bar:  linear-gradient(to bottom, #eee, #ddd 30%, #ccc 60%, #bbb);
+  --team2-bar:  linear-gradient(to bottom, #bbb, #ccc 30%, #ddd 60%, #eee);
+  --team1-text: #000000;  /* black on silver — matches stock CRG */
   --team2-text: #000000;
 }
 
@@ -104,7 +108,7 @@ div.AnimatedPanel.AnimationDelay { transition: transform 1s ease-in-out .3s; }
 .ShowJammers .JammerBox.Show, .Lineups.UseLT.PenaltyClocks .JammerBox { margin-left: 0; z-Index: -3; }
 .TeamBox .JammerBox { float: left; transition: margin-left 2s; }
 
-.TeamBox .JammerBox>div { font-size: 100%; padding: 0px 2px; min-height: 100%; flex: 1; display: flex; justify-content: space-around; }
+.TeamBox .JammerBox>div { font-size: 115%; padding: 0px 2px; min-height: 100%; flex: 1; display: flex; justify-content: space-around; text-transform: uppercase; letter-spacing: 0.02em; }
 .TeamBox.Lineups.UseLT .JammerBox>div { border-right: solid rgba(255,255,255,0.25) 1px; }
 .TeamBox.Lineups.UseLT .JammerBox>:last-child>div { border-right: none; }
 .TeamBox.Lineups.UseLT .JammerBox .Penalized:not(.InBox) { background-color: var(--element-unserved-bg); color: var(--element-unserved-fg); }
