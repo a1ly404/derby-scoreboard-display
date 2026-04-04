@@ -1,0 +1,58 @@
+body { margin: 0; font-family: sans-serif; }
+
+label { font-variant: small-caps; display: block; margin-top: 6px; font-size: .85em; color: #ccc; }
+
+#Controls { float: left; width: 15%; background: #1a1a1a; color: #fff; min-height: 100vh; padding-bottom: 20px; }
+#Preview   { float: left; width: 84%; height: 98%; }
+
+#Preview > iframe { border: 3px solid #444; margin: 10px; width: 1920px; height: 1080px; }
+
+h2 { margin: 0 0 6px 0; padding: 4px 6px; display: block; border-radius: 6px; text-align: center; background: #2a2a2a; color: #ddd; }
+
+.Panel { padding: 8px; border-bottom: 1px solid #333; }
+
+.ExtraForm { margin: 20px 0; }
+.ExtraForm .in { margin: 6px; text-align: center; }
+
+button, input, select {
+  outline: none; cursor: pointer; padding: 6px 8px; border-radius: 8px;
+  font-size: .8em; width: 100%; color: white; background: #444;
+  border: 1px solid #555; margin-bottom: 2px;
+}
+input[type=range]  { width: 95%; }
+input[type=number] { width: 40%; }
+input[type=text]   { width: 95%; }
+#TeamOptions input[type=text] { width: 45%; }
+
+input[type="color"] { padding: 0; width: 15%; }
+input[type="color"].Cleared + button { background-color: #ff0000; }
+button.ClearPrev { padding: 0; width: 7%; }
+
+select { display: inline-block; appearance: none; }
+
+button.ToggleSwitch { cursor: pointer; outline: none; width: 100%; transition: all .5s ease; }
+button.ToggleSwitch { border: 0px solid; border-color: #999 #00FF00 #999 #FF0000; background: #555; color: #fff; border-left-width: 20px; border-right-width: 0px; }
+button.ToggleSwitch.sbActive   { border-right-width: 20px; border-left-width: 0px; }
+button.ToggleSwitch.changed    { border-left-color: #ffa500; border-left-width: 20px; border-right-width: 0px; }
+button.ToggleSwitch.disabled   { border-left-color: #ff8888; border-right-color: #ffff33; background: #666; }
+
+#PanelSet:before              { content: 'Show [ ]'; }
+#PanelSet.current:before      { content: 'Hide [ ]'; }
+#PanelSet.changed.current:before { content: 'Switch [ ]'; }
+
+h2 { font-variant: small-caps; font-size: 1.1em; }
+
+/* ─── League preset swatches ─── */
+#LeaguePresets { background: #111; }
+#LeaguePresets h2 { background: #1f3264; color: #fff; }
+
+#PresetSwatch { margin-top: 8px; }
+.SwatchRow { display: flex; align-items: center; margin-bottom: 4px; gap: 4px; }
+.SwatchLabel { font-size: .75em; color: #aaa; width: 18px; flex-shrink: 0; }
+.SwatchBox { display: inline-block; width: 22px; height: 16px; border-radius: 4px; border: 1px solid #666; flex-shrink: 0; }
+.SwatchName { font-size: .75em; color: #ccc; overflow: hidden; white-space: nowrap; }
+
+/* ─── Custom hex colour row ─── */
+.HexRow { display: flex; gap: 4px; align-items: center; margin-bottom: 4px; }
+.HexRow input[type="color"] { width: 36px; height: 30px; padding: 2px; flex-shrink: 0; cursor: pointer; }
+.HexRow input[type="text"]  { flex: 1; font-family: monospace; font-size: .85em; }
