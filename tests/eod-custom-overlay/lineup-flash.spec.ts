@@ -655,11 +655,19 @@ test.describe("Same-Colour Conflict — T2 Bar Auto-Adjusted", () => {
           getComputedStyle(document.documentElement).getPropertyValue(v).trim(),
         "--team1-bar",
       );
+      expect(
+        t1Bar,
+        `[${preset.name}] --team1-bar CSS var must not be empty`,
+      ).not.toBe("");
       const t2Bar = await overlayPage.evaluate(
         (v: string) =>
           getComputedStyle(document.documentElement).getPropertyValue(v).trim(),
         "--team2-bar",
       );
+      expect(
+        t2Bar,
+        `[${preset.name}] --team2-bar CSS var must not be empty`,
+      ).not.toBe("");
 
       // T1 bar should be the original colour (unadjusted)
       expect(
@@ -686,6 +694,10 @@ test.describe("Same-Colour Conflict — T2 Bar Auto-Adjusted", () => {
           getComputedStyle(document.documentElement).getPropertyValue(v).trim(),
         "--team2-flash-trough",
       );
+      expect(
+        t2Trough,
+        `[${preset.name}] --team2-flash-trough CSS var must not be empty`,
+      ).not.toBe("");
       expect(
         t2Trough.toLowerCase().replace(/\s/g, ""),
         `[${preset.name}] T2 flash trough should equal adjusted T2 bar`,

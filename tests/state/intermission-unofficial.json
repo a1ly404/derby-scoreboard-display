@@ -1,0 +1,10 @@
+{
+  "_description": "End of final period — unofficial score, awaiting official confirmation",
+  "ScoreBoard.CurrentGame.Clock(Intermission).Running": true,
+  "ScoreBoard.CurrentGame.Clock(Intermission).Number": 2,
+  "ScoreBoard.CurrentGame.Clock(Period).Running": false,
+  "ScoreBoard.CurrentGame.InPeriod": false,
+  "ScoreBoard.CurrentGame.InJam": false,
+  "ScoreBoard.CurrentGame.Clock(Jam).Running": false,
+  "ScoreBoard.CurrentGame.OfficialScore": false
+}

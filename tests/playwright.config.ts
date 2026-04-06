@@ -1,29 +1,26 @@
-import { defineConfig } from '@playwright/test';
-import path from 'path';
+import { defineConfig } from "@playwright/test";
+import path from "path";
 
 export default defineConfig({
-  testDir: '.',
-  testMatch: ['**/*.spec.ts'],
+  testDir: ".",
+  testMatch: ["**/*.spec.ts"],
   timeout: 30_000,
   expect: { timeout: 10_000 },
-  fullyParallel: false, // tests share a server
+  fullyParallel: true,
   retries: 1,
-  workers: 1, // single WS server
-  reporter: [
-    ['html', { open: 'never' }],
-    ['list'],
-  ],
+  workers: undefined,
+  reporter: [["html", { open: "never" }], ["list"]],
   use: {
-    screenshot: 'on',
-    trace: 'on-first-retry',
-    video: 'retain-on-failure',
+    screenshot: "on",
+    trace: "on-first-retry",
+    video: "retain-on-failure",
   },
-  outputDir: path.join(__dirname, 'artifacts', 'results'),
+  outputDir: path.join(__dirname, "artifacts", "results"),
   projects: [
     {
-      name: 'chromium',
+      name: "chromium",
       use: {
-        browserName: 'chromium',
+        browserName: "chromium",
         viewport: { width: 1920, height: 1080 },
       },
     },

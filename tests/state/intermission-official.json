@@ -1,0 +1,10 @@
+{
+  "_description": "Final score — OfficialScore set after end of game (Number=2, Rule(Period.Number)=2 from initial)",
+  "ScoreBoard.CurrentGame.Clock(Intermission).Running": true,
+  "ScoreBoard.CurrentGame.Clock(Intermission).Number": 2,
+  "ScoreBoard.CurrentGame.Clock(Period).Running": false,
+  "ScoreBoard.CurrentGame.InPeriod": false,
+  "ScoreBoard.CurrentGame.InJam": false,
+  "ScoreBoard.CurrentGame.Clock(Jam).Running": false,
+  "ScoreBoard.CurrentGame.OfficialScore": true
+}

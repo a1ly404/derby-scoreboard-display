@@ -1,0 +1,9 @@
+{
+  "_description": "Pre-game intermission — game has not yet started, Clock(Intermission).Number=0",
+  "ScoreBoard.CurrentGame.Clock(Intermission).Running": true,
+  "ScoreBoard.CurrentGame.Clock(Intermission).Number": 0,
+  "ScoreBoard.CurrentGame.Clock(Period).Running": false,
+  "ScoreBoard.CurrentGame.InPeriod": false,
+  "ScoreBoard.CurrentGame.InJam": false,
+  "ScoreBoard.CurrentGame.Clock(Jam).Running": false
+}
