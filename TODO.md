@@ -115,12 +115,13 @@ regex at all, so the silent-skip risk is gone.
 
 ### Still to do
 
-- [ ] **Intermission / halftime / final score** — no spec tests push
-      `Clock(Intermission).Running = true` to verify the clock box description text.
-- [ ] **CSS variable rename guard** — if `--team1-bar` or `--teamN-flash-peak` are
-      renamed, tests silently get empty strings. Add explicit `expect(varValue).not.toBe('')`
-      guards before each CSS variable assertion (partially addressed — added in
-      `league-presets.spec.ts` and `edge-cases.spec.ts` but not in all existing specs).
+- [x] **Intermission / halftime / final score** — `clock-description.spec.ts` covers
+      all 10 `ovlToClockType()` return values: Jam, Lineup, Official Timeout, Team Timeout,
+      Official Review, Pre-Game, Halftime, Unofficial Score, Final Score, Coming Up.
+      Asserts both `.ClockDescription` text and `backgroundColor`.
+- [x] **CSS variable rename guard** — `expect(varValue).not.toBe('')` guards added to
+      `lineup-flash.spec.ts` Same-Colour Conflict block (`--team1-bar`, `--team2-bar`,
+      `--team2-flash-trough`). All other CSS var reads in existing specs already had guards.
 
 ### Copilot review items from PR #1
 
@@ -159,7 +160,7 @@ regex at all, so the silent-skip risk is gone.
       `HOST`, `PORT`, `URI` now read from parsed args instead of being hardcoded constants.
 - [x] `tests/package.json` — `test:screenshots` script added
       (`npx playwright test --grep screenshots`).
-- [ ] `TEAM_NAME_MAX` doubled from 14 → 28: already on `main` via commit `36089ae` ✅
+- [x] `TEAM_NAME_MAX` doubled from 14 → 28: already on `main` via commit `36089ae` ✅
 - [ ] Panel `<h1>` headers, PPJ chart bars, lower third `<h5>`, penalty badge colours
       use CRG-injected inline styles — need manual WCAG testing (out of scope for
       automated tests; see WCAG_AUDIT.md §Elements NOT Covered).
@@ -178,9 +179,12 @@ regex at all, so the silent-skip risk is gone.
 - [x] `test:screenshots` npm script added to `package.json`.
 - [ ] Add `toHaveScreenshot()` baseline comparisons (requires first running with
       `--update-snapshots` to generate reference images, then committing them).
-- [ ] Consider running tests in parallel — currently single-worker. Each test
-      creates its own server on port 0, so parallelism should be safe; only needs
-      `workers: undefined` in `playwright.config.ts` to enable.
+- [x] Parallel workers enabled — `fullyParallel: true`, `workers: undefined` in
+      `playwright.config.ts`. Suite runtime: 3.2 min → 31 s. Each test creates its
+      own MockCRGServer on port 0 so parallelism is safe.
+- [x] Intermission state files created: `intermission-pregame.json`,
+      `intermission-halftime.json`, `intermission-unofficial.json`,
+      `intermission-official.json`.
 
 ---
 
@@ -188,6 +192,5 @@ regex at all, so the silent-skip risk is gone.
 
 | Repo | Branch | HEAD | Notes |
 |------|--------|------|-------|
-| `derby-scoreboard-display` | `tests/orchestrator` | `cab21f4` + local edits | PR #1 — ahead of `main` |
-| `derby-scoreboard-display` | `main` | `36089ae` | Post-revert; `fix/jammer-flash-contrast-and-sp-indicator` points here |
-| `derby-scoreboard-api` | `main` | `9f41136` + local edits | Intermission PR #8 merged + new timeout/counter fields |
+| `derby-scoreboard-display` | `main` | `12a2607` | PR #1 squash-merged; `tests/orchestrator` branch deleted |
+| `derby-scoreboard-api` | `main` | `4158949` | Python 3.9 compat fix for `proxy.py` Union annotation; 92 tests passing |
