@@ -11,7 +11,7 @@
  *   3. The star indicator shows "★" for lead, "SP" for star pass, "" for lost
  *   4. The flash colour contrast meets WCAG 4.5:1 against the bar
  */
-import { test, expect, loadState, contrastRatio } from '../fixtures';
+import { test, expect, loadState, contrastRatio, screenshotOverlayBar } from '../fixtures';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -95,10 +95,7 @@ test.describe('Lead Jammer Flash', () => {
     expect(anim).toMatch(/HasLead/);
 
     // Screenshot for visual verification
-    await overlayPage.screenshot({
-      path: 'test-results/screenshots/team1-lead-flash.png',
-      fullPage: true,
-    });
+    await screenshotOverlayBar(overlayPage, 'test-results/screenshots/team1-lead-flash.png');
   });
 
   test('Team 2 lead flash activates during jam', async ({ overlayPage, pushState }) => {
@@ -111,10 +108,7 @@ test.describe('Lead Jammer Flash', () => {
     const anim = await getJammingAnimation(overlayPage, 2);
     expect(anim).toMatch(/HasLead/);
 
-    await overlayPage.screenshot({
-      path: 'test-results/screenshots/team2-lead-flash.png',
-      fullPage: true,
-    });
+    await screenshotOverlayBar(overlayPage, 'test-results/screenshots/team2-lead-flash.png');
   });
 
   test('indicator shows ★ for lead', async ({ overlayPage, pushState }) => {
@@ -141,10 +135,7 @@ test.describe('Lead Jammer Flash', () => {
     const lead = await hasLeadClass(overlayPage, 1);
     expect(lead).toBe(false);
 
-    await overlayPage.screenshot({
-      path: 'test-results/screenshots/team1-star-pass.png',
-      fullPage: true,
-    });
+    await screenshotOverlayBar(overlayPage, 'test-results/screenshots/team1-star-pass.png');
   });
 
   test('indicator clears after lost lead', async ({ overlayPage, pushState }) => {

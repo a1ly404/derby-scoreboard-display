@@ -25,6 +25,12 @@ jobs:
           path: scoreboard
           sparse-checkout: html
 
+      - name: Checkout eod-custom-overlay
+        uses: actions/checkout@v4
+        with:
+          repository: a1ly404/eod-custom-overlay
+          path: eod-custom-overlay
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -40,6 +46,9 @@ jobs:
 
       - name: Run Playwright tests
         working-directory: derby-scoreboard-display/tests
+        env:
+          CRG_HTML_DIR: ${{ github.workspace }}/scoreboard/html
+          EOD_CUSTOM_DIR: ${{ github.workspace }}/eod-custom-overlay
         run: npx playwright test --reporter=html,list
 
       - name: Upload test results

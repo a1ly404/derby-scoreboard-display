@@ -8,24 +8,9 @@
  *   4. Timeout dot visibility against bar
  *   5. Multiple colour combinations (dark, light, red-on-red, grey, B&W)
  */
-import { test, expect, loadState, contrastRatio } from '../fixtures';
+import { test, expect, loadState, contrastRatio, screenshotOverlayBar } from '../fixtures';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-
-/** Get computed color and background-color of the team bar row */
-async function getBarColours(page: any, team: number) {
-  return page.evaluate((t: number) => {
-    const bar = document.querySelector(
-      `.TeamBox [Team="${t}"] .Team.barBackground`
-    ) as HTMLElement | null;
-    if (!bar) return null;
-    const style = window.getComputedStyle(bar);
-    return {
-      color: style.color,
-      backgroundColor: style.backgroundColor,
-    };
-  }, team);
-}
 
 /** Get computed color of the .Jamming element for a team */
 async function getJammingComputedColor(page: any, team: number) {
@@ -87,10 +72,7 @@ test.describe('WCAG Contrast — Team Bar Text', () => {
         expect(ratio, `Team ${team} bar text contrast (${textVar} on ${fgHex})`).toBeGreaterThanOrEqual(4.5);
       }
 
-      await overlayPage.screenshot({
-        path: `test-results/screenshots/wcag-bar-text-${combo.name}.png`,
-        fullPage: true,
-      });
+      await screenshotOverlayBar(overlayPage, `test-results/screenshots/wcag-bar-text-${combo.name}.png`);
     });
   }
 });
@@ -109,6 +91,8 @@ test.describe('WCAG Contrast — Lead Flash', () => {
       const jammingColor = await getJammingComputedColor(overlayPage, 1);
       const fgHex = combo.t1fg;
 
+      expect(jammingColor, 'Team 1 Jamming element should exist').not.toBeNull();
+
       if (jammingColor) {
         const colorHex = rgbToHex(jammingColor);
         // The flash colour should pass WCAG against the bar
@@ -120,8 +104,13 @@ test.describe('WCAG Contrast — Lead Flash', () => {
           return el?.textContent ?? '';
         });
 
+        // The overlay must have injected the style element for the flash
+        expect(injectedStyle, 'Expected derby-lead-flash-style-t1 to be injected').not.toBe('');
+
         // Extract the peak colour from the injected keyframe
         const peakMatch = injectedStyle.match(/0%\s*\{\s*color:\s*(#[0-9a-fA-F]{6})/);
+        expect(peakMatch, `Expected peak colour in T1 keyframe, got: ${injectedStyle.slice(0, 120)}`).not.toBeNull();
+
         if (peakMatch) {
           const peakColour = peakMatch[1];
           const peakRatio = contrastRatio(peakColour, fgHex);
@@ -142,7 +131,12 @@ test.describe('WCAG Contrast — Lead Flash', () => {
         return el?.textContent ?? '';
       });
 
+      // The overlay must have injected the style element for Team 2
+      expect(injectedStyle2, 'Expected derby-lead-flash-style-t2 to be injected').not.toBe('');
+
       const peakMatch2 = injectedStyle2.match(/0%\s*\{\s*color:\s*(#[0-9a-fA-F]{6})/);
+      expect(peakMatch2, `Expected peak colour in T2 keyframe, got: ${injectedStyle2.slice(0, 120)}`).not.toBeNull();
+
       if (peakMatch2) {
         const peakColour = peakMatch2[1];
         const t2fg = combo.t2fg;
@@ -150,10 +144,7 @@ test.describe('WCAG Contrast — Lead Flash', () => {
         expect(peakRatio, `Team 2 lead flash peak (${peakColour} on ${t2fg})`).toBeGreaterThanOrEqual(4.5);
       }
 
-      await overlayPage.screenshot({
-        path: `test-results/screenshots/wcag-lead-flash-${combo.name}.png`,
-        fullPage: true,
-      });
+      await screenshotOverlayBar(overlayPage, `test-results/screenshots/wcag-lead-flash-${combo.name}.png`);
     });
   }
 });

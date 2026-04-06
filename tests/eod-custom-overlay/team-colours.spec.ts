@@ -8,7 +8,7 @@
  *   4. Timeout dots show/hide correctly
  *   5. Clock displays switch correctly between states
  */
-import { test, expect, loadState } from '../fixtures';
+import { test, expect, loadState, screenshotOverlayBar } from '../fixtures';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -84,20 +84,80 @@ test.describe('Team Colours', () => {
 
 test.describe('Team Name Display', () => {
   test('short name displays in full', async ({ overlayPage }) => {
-    // "Home Team" is ≤14 chars, should show in full
+    // "Home Team" is ≤28 chars, should show in full
     const name = await getText(overlayPage, `.TeamBox [Team="1"] .Name`);
     expect(name).toBe('Home Team');
   });
 
-  test('long name truncates to first word', async ({ overlayPage, pushState }) => {
+  test('medium name within limit displays in full', async ({ overlayPage, pushState }) => {
+    // "Denver Roller Derby" is 19 chars (≤28), should show in full
     await pushState({
       'ScoreBoard.CurrentGame.Team(1).Name': 'Denver Roller Derby',
     });
-    // "Denver Roller Derby" > 14 chars → truncated to "Denver"
-    // Wait a moment for the sbDisplay to process
     await overlayPage.waitForTimeout(300);
     const name = await getText(overlayPage, `.TeamBox [Team="1"] .Name`);
-    expect(name).toBe('Denver');
+    expect(name).toBe('Denver Roller Derby');
+  });
+
+  test('long name over 28 chars truncates to first word', async ({ overlayPage, pushState }) => {
+    // "Saskatoon Prairie Wheat Kings Roller Derby" is 42 chars → truncated to "Saskatoon"
+    await pushState({
+      'ScoreBoard.CurrentGame.Team(1).Name': 'Saskatoon Prairie Wheat Kings Roller Derby',
+    });
+    await overlayPage.waitForTimeout(300);
+    const name = await getText(overlayPage, `.TeamBox [Team="1"] .Name`);
+    expect(name).toBe('Saskatoon');
+  });
+
+  test('exactly 28 char name displays in full', async ({ overlayPage, pushState }) => {
+    // Exactly 28 characters — should NOT truncate
+    const exactName = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ12'; // 28 chars
+    await pushState({
+      'ScoreBoard.CurrentGame.Team(1).Name': exactName,
+    });
+    await overlayPage.waitForTimeout(300);
+    const name = await getText(overlayPage, `.TeamBox [Team="1"] .Name`);
+    expect(name).toBe(exactName);
+  });
+
+  test('29 char name truncates to first word', async ({ overlayPage, pushState }) => {
+    // 29 characters with a space — should truncate to first word
+    await pushState({
+      'ScoreBoard.CurrentGame.Team(1).Name': 'ABCDEFGHIJKLMNO QRSTUVWXYZ123',
+    });
+    await overlayPage.waitForTimeout(300);
+    const name = await getText(overlayPage, `.TeamBox [Team="1"] .Name`);
+    expect(name).toBe('ABCDEFGHIJKLMNO');
+  });
+
+  test('extremely long single-word name shows in full (no space to split)', async ({ overlayPage, pushState }) => {
+    // 50-char name with NO spaces — ovlToFirstWord returns full string
+    const longNoSpace = 'A'.repeat(50);
+    await pushState({
+      'ScoreBoard.CurrentGame.Team(1).Name': longNoSpace,
+    });
+    await overlayPage.waitForTimeout(300);
+    const name = await getText(overlayPage, `.TeamBox [Team="1"] .Name`);
+    expect(name).toBe(longNoSpace);
+
+    // Screenshot to verify overflow behaviour at 1080p
+    await screenshotOverlayBar(overlayPage, 'test-results/screenshots/team-name-overflow-long.png');
+  });
+
+  test('both teams with very long names screenshot', async ({ overlayPage, pushState }) => {
+    await pushState({
+      'ScoreBoard.CurrentGame.Team(1).Name': 'The Incredibly Long Team Name That Just Keeps Going',
+      'ScoreBoard.CurrentGame.Team(2).Name': 'Another Ridiculously Extended Roller Derby Team Name',
+    });
+    await overlayPage.waitForTimeout(300);
+
+    // Both should truncate to first word since they exceed 28 chars
+    const name1 = await getText(overlayPage, `.TeamBox [Team="1"] .Name`);
+    const name2 = await getText(overlayPage, `.TeamBox [Team="2"] .Name`);
+    expect(name1).toBe('The');
+    expect(name2).toBe('Another');
+
+    await screenshotOverlayBar(overlayPage, 'test-results/screenshots/team-names-long-both.png');
   });
 });
 
@@ -179,33 +239,21 @@ test.describe('Timeout Dots', () => {
 
 test.describe('Screenshots — Full Overlay States', () => {
   test('initial state screenshot', async ({ overlayPage }) => {
-    await overlayPage.screenshot({
-      path: 'test-results/screenshots/initial-state.png',
-      fullPage: true,
-    });
+    await screenshotOverlayBar(overlayPage, 'test-results/screenshots/initial-state.png');
   });
 
   test('in-jam with lead screenshot', async ({ overlayPage, pushState }) => {
     await pushState(loadState('team1-lead'));
-    await overlayPage.screenshot({
-      path: 'test-results/screenshots/in-jam-team1-lead.png',
-      fullPage: true,
-    });
+    await screenshotOverlayBar(overlayPage, 'test-results/screenshots/in-jam-team1-lead.png');
   });
 
   test('timeout state screenshot', async ({ overlayPage, pushState }) => {
     await pushState(loadState('team1-timeout'));
-    await overlayPage.screenshot({
-      path: 'test-results/screenshots/team1-timeout.png',
-      fullPage: true,
-    });
+    await screenshotOverlayBar(overlayPage, 'test-results/screenshots/team1-timeout.png');
   });
 
   test('official timeout screenshot', async ({ overlayPage, pushState }) => {
     await pushState(loadState('official-timeout'));
-    await overlayPage.screenshot({
-      path: 'test-results/screenshots/official-timeout.png',
-      fullPage: true,
-    });
+    await screenshotOverlayBar(overlayPage, 'test-results/screenshots/official-timeout.png');
   });
 });

@@ -44,15 +44,23 @@ export class MockCRGServer {
     this._app = express();
 
     // Serve CRG static files at /
-    if (fs.existsSync(options.crgHtmlDir)) {
-      this._app.use(express.static(options.crgHtmlDir));
+    if (!fs.existsSync(options.crgHtmlDir)) {
+      throw new Error(
+        `CRG html directory not found: ${options.crgHtmlDir}\n` +
+        'Set the CRG_HTML_DIR environment variable or check your local scoreboard/html path.'
+      );
     }
+    this._app.use(express.static(options.crgHtmlDir));
 
     // Mount each overlay at /custom/<name>/
     for (const [name, dir] of Object.entries(options.overlays)) {
-      if (fs.existsSync(dir)) {
-        this._app.use(`/custom/${name}`, express.static(dir));
+      if (!fs.existsSync(dir)) {
+        throw new Error(
+          `Overlay directory not found: ${dir} (overlay: ${name})\n` +
+          'Set the EOD_CUSTOM_DIR environment variable or check your local overlay path.'
+        );
       }
+      this._app.use(`/custom/${name}`, express.static(dir));
     }
   }
 

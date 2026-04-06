@@ -11,10 +11,13 @@ import { MockCRGServer } from './mock-crg-server';
 import path from 'path';
 import fs from 'fs';
 
-// Paths
-const CRG_HTML_DIR = path.resolve(__dirname, '../../scoreboard/html');
-const EOD_CUSTOM_DIR = path.resolve(__dirname, '../eod-custom-overlay');
+// Paths — prefer environment variables (set in CI), fall back to local dev layout
+const CRG_HTML_DIR = process.env.CRG_HTML_DIR || path.resolve(__dirname, '../../scoreboard/html');
+const EOD_CUSTOM_DIR = process.env.EOD_CUSTOM_DIR || path.resolve(__dirname, '../eod-custom-overlay');
 const STATE_DIR = path.resolve(__dirname, './state');
+
+/** Overlay name used in the mock server mount and URL path */
+const OVERLAY_NAME = 'eod-custom-overlay';
 
 /** Load a state JSON file from the state/ directory */
 export function loadState(name: string): Record<string, any> {
@@ -75,7 +78,7 @@ export const test = base.extend<OverlayFixtures>({
     const server = new MockCRGServer({
       crgHtmlDir: CRG_HTML_DIR,
       overlays: {
-        'eod-custom-overlay': EOD_CUSTOM_DIR,
+        [OVERLAY_NAME]: EOD_CUSTOM_DIR,
       },
       initialState,
     });
@@ -88,7 +91,7 @@ export const test = base.extend<OverlayFixtures>({
     // Navigate to the overlay served by our mock server.
     // The overlay HTML loads CRG's jQuery/core.js/WS.js from /,
     // then WS.Connect() opens a WS to the same host.
-    const url = `http://127.0.0.1:${mockServer.port}/custom/eod-custom-overlay/index.html`;
+    const url = `http://127.0.0.1:${mockServer.port}/custom/${OVERLAY_NAME}/index.html`;
     await page.goto(url);
 
     // Wait for WS.js to connect and process the initial state snapshot.
@@ -112,13 +115,48 @@ export const test = base.extend<OverlayFixtures>({
 
       mockServer.pushUpdate(cleanPatch);
 
-      // Wait for the DOM to process the update.
-      // CRG's WS.js processes updates synchronously on message receipt,
-      // then jQuery applies DOM changes. A short wait covers render.
-      await overlayPage.waitForTimeout(300);
+      // Wait for the DOM to reflect the WS state update.
+      // CRG's WS.js fires callbacks synchronously on message receipt;
+      // we wait for the next animation frame + a micro-task to ensure
+      // all sbDisplay/sbClass directives have finished rendering.
+      await overlayPage.evaluate(() =>
+        new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)))
+      );
     };
     await use(push);
   },
 });
 
 export { expect };
+
+/**
+ * Take a screenshot clipped to the overlay bar area only (TeamBox + ClockBox).
+ * Excludes the wider penalty board / roster panels below.
+ */
+export async function screenshotOverlayBar(page: Page, filePath: string): Promise<void> {
+  // .PanelWrapperTop contains the TeamBox and ClockBox — the visible overlay bar.
+  // Fall back to a fixed clip if the element isn't found (shouldn't happen).
+  const wrapper = await page.$('.PanelWrapperTop');
+  if (wrapper) {
+    const box = await wrapper.boundingBox();
+    if (box) {
+      // Add a small margin around the overlay bar
+      const margin = 8;
+      await page.screenshot({
+        path: filePath,
+        clip: {
+          x: Math.max(0, box.x - margin),
+          y: Math.max(0, box.y - margin),
+          width: Math.min(1920, box.width + margin * 2),
+          height: box.height + margin * 2,
+        },
+      });
+      return;
+    }
+  }
+  // Fallback: top strip of the viewport (first 120px)
+  await page.screenshot({
+    path: filePath,
+    clip: { x: 0, y: 0, width: 1920, height: 120 },
+  });
+}
