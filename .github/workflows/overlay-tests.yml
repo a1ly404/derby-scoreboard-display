@@ -29,6 +29,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: a1ly404/eod-custom-overlay
+          ref: fix/overlay-wcag-and-tests
           path: eod-custom-overlay
 
       - name: Setup Node.js
