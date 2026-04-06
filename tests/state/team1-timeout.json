@@ -1,0 +1,8 @@
+{
+  "_description": "Team 1 uses a timeout (2 remain)",
+  "ScoreBoard.CurrentGame.Team(1).Timeouts": 2,
+  "ScoreBoard.CurrentGame.Clock(Timeout).Running": true,
+  "ScoreBoard.CurrentGame.Clock(Jam).Running": false,
+  "ScoreBoard.CurrentGame.InJam": false,
+  "ScoreBoard.CurrentGame.TimeoutOwner": "1"
+}

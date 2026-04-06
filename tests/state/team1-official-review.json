@@ -1,0 +1,9 @@
+{
+  "_description": "Team 1 uses official review",
+  "ScoreBoard.CurrentGame.Team(1).OfficialReviews": 0,
+  "ScoreBoard.CurrentGame.OfficialReview": true,
+  "ScoreBoard.CurrentGame.Clock(Timeout).Running": true,
+  "ScoreBoard.CurrentGame.Clock(Jam).Running": false,
+  "ScoreBoard.CurrentGame.InJam": false,
+  "ScoreBoard.CurrentGame.TimeoutOwner": "1"
+}

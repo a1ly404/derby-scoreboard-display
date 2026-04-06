@@ -1,0 +1,6 @@
+{
+  "_description": "Team 1 calls off the jam",
+  "ScoreBoard.CurrentGame.Team(1).Calloff": true,
+  "ScoreBoard.CurrentGame.Team(1).Lead": true,
+  "ScoreBoard.CurrentGame.Team(1).DisplayLead": true
+}

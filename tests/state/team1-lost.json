@@ -1,0 +1,6 @@
+{
+  "_description": "Team 1 loses lead",
+  "ScoreBoard.CurrentGame.Team(1).Lost": true,
+  "ScoreBoard.CurrentGame.Team(1).Lead": false,
+  "ScoreBoard.CurrentGame.Team(1).DisplayLead": false
+}

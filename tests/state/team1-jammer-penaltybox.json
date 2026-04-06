@@ -1,0 +1,6 @@
+{
+  "_description": "Jammer goes to penalty box",
+  "ScoreBoard.CurrentGame.Team(1).Position(Jammer).PenaltyBox": true,
+  "ScoreBoard.CurrentGame.Team(1).Position(Jammer).CurrentPenalties": "X",
+  "ScoreBoard.CurrentGame.Team(1).Position(Jammer).PenaltyTime": "30"
+}

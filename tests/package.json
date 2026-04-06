@@ -1,0 +1,23 @@
+{
+  "name": "derby-overlay-tests",
+  "version": "1.0.0",
+  "description": "Playwright test suite for CRG ScoreBoard overlays — mock WS server, DOM assertions, WCAG contrast checks, screenshot artifacts",
+  "private": true,
+  "scripts": {
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "test:debug": "npx playwright test --debug",
+    "test:ui": "npx playwright test --ui",
+    "test:eod-custom": "npx playwright test --grep @eod-custom",
+    "test:eod": "npx playwright test --grep @eod-overlay",
+    "test:crg": "npx playwright test --grep @crg-overlay",
+    "report": "npx playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0",
+    "express": "^4.21.0",
+    "ws": "^8.18.0",
+    "@types/express": "^4.17.21",
+    "@types/ws": "^8.5.13"
+  }
+}

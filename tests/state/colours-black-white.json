@@ -1,0 +1,7 @@
+{
+  "_description": "High contrast — pure black and pure white",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.fg)": "#000000",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.bg)": "#000000",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.fg)": "#ffffff",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.bg)": "#ffffff"
+}
