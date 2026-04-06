@@ -1,0 +1,6 @@
+{
+  "_description": "Team 2 star passes — pivot becomes jammer",
+  "ScoreBoard.CurrentGame.Team(2).StarPass": true,
+  "ScoreBoard.CurrentGame.Team(2).Lead": false,
+  "ScoreBoard.CurrentGame.Team(2).DisplayLead": false
+}

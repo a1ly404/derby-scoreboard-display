@@ -1,0 +1,7 @@
+{
+  "_description": "Red-on-red edge case — team bar is red, lead flash default is red",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.fg)": "#cc0000",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.bg)": "#880000",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.fg)": "#1f3264",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.bg)": "#000000"
+}

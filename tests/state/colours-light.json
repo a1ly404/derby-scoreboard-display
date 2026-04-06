@@ -1,0 +1,7 @@
+{
+  "_description": "Light team colours — white and yellow bars (hardest for WCAG)",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.fg)": "#ffffff",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.bg)": "#dddddd",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.fg)": "#ffff00",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.bg)": "#eeee00"
+}

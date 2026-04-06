@@ -1,0 +1,9 @@
+{
+  "_description": "Halftime intermission — after period 1, Rule(Period.Number)=2 from initial so Number(1) != max(2) → 'Halftime'",
+  "ScoreBoard.CurrentGame.Clock(Intermission).Running": true,
+  "ScoreBoard.CurrentGame.Clock(Intermission).Number": 1,
+  "ScoreBoard.CurrentGame.Clock(Period).Running": false,
+  "ScoreBoard.CurrentGame.InPeriod": false,
+  "ScoreBoard.CurrentGame.InJam": false,
+  "ScoreBoard.CurrentGame.Clock(Jam).Running": false
+}

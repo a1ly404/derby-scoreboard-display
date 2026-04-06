@@ -1,0 +1,7 @@
+{
+  "_description": "West Sound Roller Derby — burnt orange bar (#bf4c0d) barely passes WCAG AA at ~4.94:1 with white text",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.fg)": "#bf4c0d",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.bg)": "#6a306d",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.fg)": "#6a306d",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.bg)": "#bf4c0d"
+}

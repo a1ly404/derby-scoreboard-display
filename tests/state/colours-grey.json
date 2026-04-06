@@ -1,0 +1,7 @@
+{
+  "_description": "Grey team colours — EoD Envy / Hard Dark style with light grey swatch bg",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.fg)": "#444444",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.bg)": "#b6b6b6",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.fg)": "#222222",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.bg)": "#999999"
+}

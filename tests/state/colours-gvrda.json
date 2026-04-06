@@ -1,0 +1,7 @@
+{
+  "_description": "GVRDA colour preset — black bar, white text (21:1), red lead flash (5.25:1)",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.fg)": "#000000",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.bg)": "#000000",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.fg)": "#000000",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.bg)": "#000000"
+}

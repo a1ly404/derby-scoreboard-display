@@ -404,6 +404,30 @@ function msToTime(ms) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+function describeFetchError(err, endpoint, timeoutMs) {
+  const name = err?.name || 'Error';
+  const msg  = err?.message ? String(err.message) : '';
+
+  if (name === 'TimeoutError' || name === 'AbortError') {
+    return {
+      key: 'timeout',
+      text: `Request timeout after ${timeoutMs}ms: ${endpoint}`,
+    };
+  }
+
+  if (name === 'TypeError') {
+    return {
+      key: 'network_or_cors',
+      text: `Network/CORS blocked for ${endpoint} (browser reported TypeError). Check API reachability and Access-Control-Allow-Origin.`,
+    };
+  }
+
+  return {
+    key: name.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'error',
+    text: `${name}${msg ? `: ${msg}` : ''} (${endpoint})`,
+  };
+}
+
 // ── Main render ──────────────────────────────────────────────────────────────
 function render(s) {
   // Connection banner
@@ -806,7 +830,8 @@ async function fetchRaw() {
     document.getElementById('raw-output').value = JSON.stringify(data, null, 2);
     setText('raw-last-fetch', `Last /raw: ${new Date().toLocaleTimeString()}`);
   } catch (e) {
-    document.getElementById('raw-output').value = 'Error fetching /raw: ' + e.message;
+    const info = describeFetchError(e, `${API_BASE}/raw`, FETCH_TIMEOUT_MS);
+    document.getElementById('raw-output').value = info.text;
   }
 }
 
@@ -852,8 +877,8 @@ async function fetchLive() {
   } catch (e) {
     if (seq < reqSeq) return;
     errorCount++;
-    const name = (e.name === 'TimeoutError' || e.name === 'AbortError') ? 'timeout' : e.name;
-    addAlert('critical', `Fetch error: ${name}`, 'fetch_err');
+    const info = describeFetchError(e, `${API_BASE}/live`, FETCH_TIMEOUT_MS);
+    addAlert('critical', info.text, `fetch_err_${info.key}`);
     // Keep health bar updated with error count even when fetch fails
     updateHealthBar();
     // Mark as disconnected in UI

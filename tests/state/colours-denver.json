@@ -1,0 +1,7 @@
+{
+  "_description": "Denver Roller Derby league preset — dark navy bar, black swatch. White text passes 12.36:1. Red flash passes 5.25:1.",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.fg)": "#1f3264",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.bg)": "#000000",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.fg)": "#1f3264",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.bg)": "#000000"
+}

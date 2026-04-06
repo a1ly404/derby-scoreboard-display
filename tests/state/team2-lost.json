@@ -1,0 +1,6 @@
+{
+  "_description": "Team 2 loses lead mid-jam",
+  "ScoreBoard.CurrentGame.Team(2).Lead": false,
+  "ScoreBoard.CurrentGame.Team(2).DisplayLead": false,
+  "ScoreBoard.CurrentGame.Team(2).Lost": true
+}

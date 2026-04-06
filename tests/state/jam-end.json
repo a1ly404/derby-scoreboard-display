@@ -1,0 +1,16 @@
+{
+  "_description": "Jam ends — back to lineup",
+  "ScoreBoard.CurrentGame.InJam": false,
+  "ScoreBoard.CurrentGame.Clock(Jam).Running": false,
+  "ScoreBoard.CurrentGame.Clock(Lineup).Running": true,
+  "ScoreBoard.CurrentGame.Team(1).Lead": false,
+  "ScoreBoard.CurrentGame.Team(1).DisplayLead": false,
+  "ScoreBoard.CurrentGame.Team(1).Calloff": false,
+  "ScoreBoard.CurrentGame.Team(1).Lost": false,
+  "ScoreBoard.CurrentGame.Team(1).StarPass": false,
+  "ScoreBoard.CurrentGame.Team(2).Lead": false,
+  "ScoreBoard.CurrentGame.Team(2).DisplayLead": false,
+  "ScoreBoard.CurrentGame.Team(2).Calloff": false,
+  "ScoreBoard.CurrentGame.Team(2).Lost": false,
+  "ScoreBoard.CurrentGame.Team(2).StarPass": false
+}

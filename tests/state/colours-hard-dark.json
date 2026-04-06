@@ -1,0 +1,7 @@
+{
+  "_description": "Hard Dark / EoD Envy preset — dark navy bar with light grey swatch (bg=#b6b6b6 causes white roster# to fail WCAG, JS must inject black override)",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.fg)": "#12325e",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.bg)": "#b6b6b6",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.fg)": "#12325e",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.bg)": "#b6b6b6"
+}

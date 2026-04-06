@@ -1,0 +1,7 @@
+{
+  "_description": "Official timeout",
+  "ScoreBoard.CurrentGame.Clock(Timeout).Running": true,
+  "ScoreBoard.CurrentGame.Clock(Jam).Running": false,
+  "ScoreBoard.CurrentGame.InJam": false,
+  "ScoreBoard.CurrentGame.TimeoutOwner": "O"
+}

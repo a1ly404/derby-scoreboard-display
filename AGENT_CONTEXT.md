@@ -24,8 +24,8 @@ The overlay displays:
 ### Repo structure
 
 ```
-eod-overlay/
-  index.html      ← overlay page (loaded by CRG at /custom/eod-overlay/index.html)
+eod-custom-overlay/
+  index.html      ← overlay page (loaded by CRG at /custom/eod-custom-overlay/index.html)
   index.css       ← all styles (CSS custom properties drive team colours)
   index.js        ← URL param handling + WCAG contrast utilities + WS listeners
   preview.html    ← standalone preview (not connected to CRG)
@@ -51,47 +51,30 @@ CRG web UI: `http://localhost:8002`
 
 ### File sync — repo → CRG install
 
-The repo `eod-overlay/` directory must be kept in sync with:
-
-```
-derby/scoreboard/html/custom/eod-overlay/
-```
-
-Sync command (run from repo root after editing source files):
-
-```bash
-cp eod-overlay/index.html  derby/scoreboard/html/custom/eod-overlay/index.html
-cp eod-overlay/index.css   derby/scoreboard/html/custom/eod-overlay/index.css
-cp eod-overlay/index.js    derby/scoreboard/html/custom/eod-overlay/index.js
-cp eod-overlay/admin/index.html derby/scoreboard/html/custom/eod-overlay/admin/index.html
-cp eod-overlay/admin/index.css  derby/scoreboard/html/custom/eod-overlay/admin/index.css
-cp eod-overlay/admin/index.js   derby/scoreboard/html/custom/eod-overlay/admin/index.js
-```
-
-Or edit in-place inside `derby/scoreboard/html/custom/eod-overlay/`, then copy back before committing.
+`eod-custom-overlay/` is the canonical source. The directory is symlinked / served directly from `derby/scoreboard/html/custom/eod-custom-overlay/`. Edit source files in `eod-custom-overlay/` and commit — no manual copy step required.
 
 ### Overlay URL
 
 ```
-http://localhost:8002/custom/eod-overlay/index.html
+http://localhost:8002/custom/eod-custom-overlay/index.html
 ```
 
 With team colours (# encoded as %23):
 
 ```
-http://localhost:8002/custom/eod-overlay/index.html?home=%231f3264&away=%23ff2100
+http://localhost:8002/custom/eod-custom-overlay/index.html?home=%231f3264&away=%23ff2100
 ```
 
 With alt/bg colours too:
 
 ```
-http://localhost:8002/custom/eod-overlay/index.html?home=%231f3264&homebg=%23000000&away=%23ff2100&awaybg=%23000000
+http://localhost:8002/custom/eod-custom-overlay/index.html?home=%231f3264&homebg=%23000000&away=%23ff2100&awaybg=%23000000
 ```
 
 Admin panel:
 
 ```
-http://localhost:8002/custom/eod-overlay/admin/index.html
+http://localhost:8002/custom/eod-custom-overlay/admin/index.html
 ```
 
 ### CRG WebSocket API
@@ -161,10 +144,13 @@ When URL params or admin changes are applied, JS overrides these with a flat hex
 
 ## 5. WCAG Utilities (`index.js`)
 
-All functions are global (no module system):
+All functions are global (no module system).
+
+### `isValidHex(hex)` → bool
+Returns `true` only for 3- or 6-digit hex strings (with or without `#`). All colour-handling functions call this before processing. Prevents CSS injection, NaN propagation, and `TypeError` on null inputs.
 
 ### `hexToRgb(hex)` → `{r, g, b}`
-Parses a 6-digit (or 3-digit) hex string.
+Parses a hex colour string. Returns `{r:0, g:0, b:0}` (safe black) for any invalid input — NaN never propagates downstream.
 
 ### `relativeLuminance(rgb)` → float
 WCAG 2.1 relative luminance formula.
@@ -173,10 +159,20 @@ WCAG 2.1 relative luminance formula.
 Returns the contrast ratio between two hex colours (e.g. `4.5` = WCAG AA).
 
 ### `wcagCheckLeadFlash(teamNum, barColour)`
-Tries `#ff0000`, `#ffffff`, `#ffff00`, `#000000` in order; picks the first that hits 4.5:1 contrast against `barColour`. Injects a `<style>` block overriding the `HasLead` keyframe animation and sets `color` on `.JammerBox .Jamming` for that team.
+Tries `#ff0000`, `#ffffff`, `#ffff00`, `#000000` in order; picks the first that hits 4.5:1 contrast against `barColour`. Sets two CSS custom properties on `:root`:
+- `--teamN-flash-peak` — the WCAG-checked high-contrast colour (shown at 0%/100% of animation)
+- `--teamN-flash-trough` — the bar colour itself (text blends in at 50% rather than fading to nothing)
+
+The CSS keyframes `HasLead_T1` / `HasLead_T2` in `index.css` read these vars. **No `<style>` injection is used.**
 
 ### `wcagCheckRosterNumber(teamNum, bgColour)`
 Checks if white text passes 4.5:1 on `bgColour`. If not, injects a `<style>` block forcing black on `.RosterTeam [Team="N"] .Number`.
+
+### `blendColours(hex, amount, targetHex)` → hex string
+Linearly interpolates `hex` toward `targetHex` by `amount` (0–1). Used by `maybeAdjustTeamConflict`.
+
+### `maybeAdjustTeamConflict()`
+Called after every colour update. When `contrastRatio(t1fg, t2fg) < 1.5:1` (teams have identical or near-identical bars), automatically lightens T2's bar toward white (dark bars) or darkens toward black (light bars) in 5% steps until ≥ 1.5:1 contrast is achieved (max 50% blend). Updates `--team2-bar`, `--team2-text`, and re-runs `wcagCheckLeadFlash(2, adjusted)`.
 
 ---
 
@@ -232,7 +228,7 @@ Background + text via CSS vars with `!important`. `font-size: 50%` on `.JammerBo
 `.ClockBarTop` / `.ClockBarBottom` — text is `#000000` (black on silver). Not connected to team CSS vars. Middle bar (`ClockBarMiddle`) has its `backgroundColor` set dynamically in JS via `$('.ClockDescription').css('backgroundColor', ...)` based on clock type (jam = `#444`, timeout = `#c0392b`, intermission = `#1a4a8a`).
 
 ### Lead flash
-Default `@keyframes HasLead` flashes white. WCAG check in JS overrides per-team with a `<style>` block using a unique `@keyframes HasLead_TN` animation.
+CSS uses two per-team keyframes `HasLead_T1` / `HasLead_T2` that read CSS custom properties `--teamN-flash-peak` and `--teamN-flash-trough`. JS sets these variables via `wcagCheckLeadFlash()` — no `<style>` injection. The fallback values (white peak, transparent trough) in `:root` work if JS hasn't run yet.
 
 ### Star pass
 The Indicator element shows `SP` text when `StarPass` is true. It uses the same CSS vars as the bar (bg = team bar colour, text = auto white/black). All presets pass WCAG AA at this element.
@@ -248,14 +244,16 @@ All paths relative to the derby working directory (`derby/`):
 
 | File | Relative path |
 |------|---------------|
-| Overlay HTML | `scoreboard/html/custom/eod-overlay/index.html` |
-| Overlay CSS | `scoreboard/html/custom/eod-overlay/index.css` |
-| Overlay JS | `scoreboard/html/custom/eod-overlay/index.js` |
-| Admin HTML | `scoreboard/html/custom/eod-overlay/admin/index.html` |
-| Admin CSS | `scoreboard/html/custom/eod-overlay/admin/index.css` |
-| Admin JS | `scoreboard/html/custom/eod-overlay/admin/index.js` |
-| Repo source | `derby-scoreboard-display/eod-overlay/` |
+| Overlay HTML | `scoreboard/html/custom/eod-custom-overlay/index.html` |
+| Overlay CSS | `scoreboard/html/custom/eod-custom-overlay/index.css` |
+| Overlay JS | `scoreboard/html/custom/eod-custom-overlay/index.js` |
+| Admin HTML | `scoreboard/html/custom/eod-custom-overlay/admin/index.html` |
+| Admin CSS | `scoreboard/html/custom/eod-custom-overlay/admin/index.css` |
+| Admin JS | `scoreboard/html/custom/eod-custom-overlay/admin/index.js` |
+| Repo source | `derby-scoreboard-display/eod-custom-overlay/` |
 | CRG jar | `scoreboard/lib/crg-scoreboard.jar` |
+| Test harness | `derby-scoreboard-display/tests/` |
+| State fixtures | `derby-scoreboard-display/tests/state/` |
 
 ---
 
@@ -263,32 +261,36 @@ All paths relative to the derby working directory (`derby/`):
 
 - ✅ Team bar rows show team colour (flat hex via `--teamN-bar` CSS var), default to stock silver gradient
 - ✅ Bar text (name, score) auto white/black via WCAG 4.5:1 check
+- ✅ `isValidHex()` input validation — prevents CSS injection, NaN propagation, and null crash
 - ✅ Indicator square matches team bar (CSS vars with `!important`)
 - ✅ JammerBox / lineup box matches team bar
 - ✅ Lineup skater text at `font-size: 100%` (readable)
 - ✅ Clock box always silver — not team-coloured
 - ✅ Clock text is black (`#000000`) on the silver clock bar
 - ✅ Roster number text always white, WCAG-flipped to black if needed
-- ✅ Lead flash star WCAG-checked per team colour
+- ✅ Lead flash star WCAG-checked per team colour — CSS variable-based animation, no `<style>` injection
 - ✅ Star pass `SP` text in Indicator — uses bar CSS vars, passes WCAG AA for all presets
+- ✅ Same-colour team conflict adjustment — auto-lightens T2 bar when T1 ≈ T2 (< 1.5:1 contrast)
 - ✅ Admin panel: league preset dropdowns + custom hex inputs + live preview iframe
 - ✅ WS.Register listener re-runs WCAG checks when admin changes colours at runtime
-- ✅ Admin preview iframe now also updates `--teamN-text` and `wcagCheckLeadFlash`
+- ✅ Admin preview iframe also updates `--teamN-text` and `wcagCheckLeadFlash`
 - ✅ WCAG_AUDIT.md documents full contrast table for all 8 league presets
-- ⚠️ **Star pass / lead flash live test still needed** — see Section 12
+- ✅ Playwright test harness — 169 tests across 7 spec files, covering lead flash, WCAG contrast, lineup visibility, name truncation, security pen tests
 
 ---
 
 ## 11. How to Make Further Changes
 
-1. Edit source files in `derby/scoreboard/html/custom/eod-overlay/`
-2. Test by loading the overlay URL in a browser (hard-refresh after CSS changes: Cmd+Shift+R)
-3. Copy changed files back to `derby-scoreboard-display/eod-overlay/`
-4. Commit and push
+1. Edit `eod-custom-overlay/` source files directly
+2. Test by running:
+   ```bash
+   cd tests && CRG_HTML_DIR=../../scoreboard/html EOD_CUSTOM_DIR=../eod-custom-overlay node_modules/.bin/playwright test
+   ```
+3. Commit from `derby-scoreboard-display/`
 
 ```bash
 cd derby-scoreboard-display
-git add eod-overlay/
+git add eod-custom-overlay/
 git commit -m "your message"
 git push origin main
 ```
@@ -303,7 +305,7 @@ Complete all items below before broadcasting live.
 
 | # | Test | How |
 |---|------|-----|
-| A1 | Load overlay with each preset pair and confirm bar text is readable | Open `http://localhost:8002/custom/eod-overlay/index.html?home=%23BARCOLOR&away=%23BARCOLOR` |
+| A1 | Load overlay with each preset pair and confirm bar text is readable | Open `http://localhost:8002/custom/eod-custom-overlay/index.html?home=%23BARCOLOR&away=%23BARCOLOR` |
 | A2 | Lead jammer ★ is visible and flashes on dark AND bright bars (Faultline, Saskatoon) | Start a jam, assign lead in CRG scoreboard UI |
 | A3 | Star pass `SP` text visible in Indicator box | In CRG scoreboard, trigger star pass during a jam |
 | A4 | Roster number text is black (not white) on `#b6b6b6` bg (Hard Dark / EoD Envy / EoD Encore) | Open roster panel, verify `.Number` cells |
@@ -317,7 +319,7 @@ Complete all items below before broadcasting live.
 |---|------|-----|
 | B1 | Setting colour via admin preset fires WS state AND updates overlay (no page reload) | Open overlay + admin side by side; change preset |
 | B2 | `wcagCheckRosterNumber` fires on admin colour change (not just URL param) | Set Hard Dark via admin, open roster panel, inspect `.Number` colour in devtools |
-| B3 | `wcagCheckLeadFlash` fires on admin colour change | Set Faultline via admin, verify flash star uses `#000000` not `#ffffff` |
+| B3 | `wcagCheckLeadFlash` fires on admin colour change | Set Faultline via admin, verify `--team1-flash-peak` is `#000000` not `#ffffff` |
 | B4 | Both teams update independently | Set Team 1 to Denver, Team 2 to Saskatoon simultaneously |
 
 ### C. Star pass specific tests
@@ -333,7 +335,7 @@ Complete all items below before broadcasting live.
 
 | # | Test | Expected result |
 |---|------|-----------------|
-| D1 | Lead jammer assigned — ★ appears and animates | `HasLead_T1` or `HasLead_T2` animation runs |
+| D1 | Lead jammer assigned — ★ appears and animates | `HasLead_T1` or `HasLead_T2` animation runs; covered by 169 automated Playwright tests |
 | D2 | Lead on Faultline (`#0096bc`) — flash is BLACK not red | Red (#ff0000) fails contrast on teal; JS should pick #000000 |
 | D3 | Lead on Saskatoon (`#ff2100`) — flash is BLACK not red | Red on red is invisible; JS should pick #000000 |
 | D4 | Lead on GVRDA (`#000000`) — flash is RED | Red (#ff0000) passes 5.25:1 on black; should be first choice |
@@ -364,3 +366,47 @@ See `WCAG_AUDIT.md` for the full table. Key findings:
 | West Sound | ⬜ white | ⬜ white | ⬜ white | ⬜ white | All pass ✅ (white 4.94:1 just above AA) |
 | EoD Envy | ⬜ white | ⬜ white | ⬜ white | ⬛ black | Same as Hard Dark ✅ |
 | EoD Encore | ⬜ white | ⬜ white | ⬜ white | ⬛ black | Same as Hard Dark ✅ |
+
+---
+
+## 14. Playwright Test Harness
+
+Automated tests live in `tests/` and cover the overlay end-to-end without a running CRG scoreboard.
+
+### Running locally
+
+```bash
+cd derby-scoreboard-display/tests
+npm install
+npx playwright install chromium
+CRG_HTML_DIR=../../scoreboard/html EOD_CUSTOM_DIR=../eod-custom-overlay npx playwright test --reporter=list
+```
+
+### Architecture
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| Fixtures | `fixtures.ts` | `mockServer`, `overlayPage`, `pushState`, `loadState`, `waitForJammerBoxVisible`, `screenshotJammerSection` |
+| Mock server | `mock-crg-server.ts` | Express + WS that speaks real CRG protocol; prototype-pollution-guarded |
+| State files | `state/*.json` | Minimal state patches for every game scenario |
+
+### Spec files
+
+| File | Tests | Coverage |
+|------|-------|---------|
+| `lead-flash.spec.ts` | 10 | Lead flash activation, T2 lost/calloff, jam-end cleanup |
+| `wcag-contrast.spec.ts` | 17 | Bar text, lead flash vars, roster#, timeout dots × 5 combos |
+| `team-colours.spec.ts` | 16 | CSS vars, name truncation, scores, dots, screenshots |
+| `lineups.spec.ts` | 10 | JammerBox show/hide, star pass, jammer numbers |
+| `lineup-flash.spec.ts` | 36 | JammerBox slide-in, flash animation, screenshots × 11 presets |
+| `edge-cases.spec.ts` | 26 | Flash fallback, rapid transitions, penalty box, OR, league presets |
+| `league-presets.spec.ts` | 22 | All 8 league presets — WCAG, trough, fades-to-nothing regression |
+| `security.spec.ts` | 27 | XSS, CSS injection, prototype pollution, flooding, path traversal |
+
+**Total: 169 tests, all passing.**
+
+### State file naming
+
+`tests/state/` contains two types:
+- **Scenario patches** (e.g. `team1-lead.json`, `jam-end.json`) — minimal delta for a game event
+- **Colour patches** (e.g. `colours-dark.json`, `colours-faultline.json`) — set `Color(overlay.fg/bg)` for both teams

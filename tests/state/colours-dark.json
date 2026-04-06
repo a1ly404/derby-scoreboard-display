@@ -1,0 +1,7 @@
+{
+  "_description": "Dark team colours — dark blue and dark red (standard derby colours)",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.fg)": "#1f3264",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.bg)": "#000000",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.fg)": "#ff2100",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.bg)": "#000000"
+}

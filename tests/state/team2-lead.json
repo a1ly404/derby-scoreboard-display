@@ -1,0 +1,9 @@
+{
+  "_description": "Jam starts — Team 2 jammer gets lead",
+  "ScoreBoard.CurrentGame.InJam": true,
+  "ScoreBoard.CurrentGame.Clock(Jam).Running": true,
+  "ScoreBoard.CurrentGame.Clock(Period).Running": true,
+  "ScoreBoard.CurrentGame.Team(2).Lead": true,
+  "ScoreBoard.CurrentGame.Team(2).DisplayLead": true,
+  "ScoreBoard.CurrentGame.Team(2).JamScore": 0
+}

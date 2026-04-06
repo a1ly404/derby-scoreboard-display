@@ -1,0 +1,57 @@
+name: Overlay Tests
+
+on:
+  push:
+    branches: [main, "tests/**", "fix/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Playwright Overlay Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout derby-scoreboard-display
+        uses: actions/checkout@v4
+        with:
+          path: derby-scoreboard-display
+
+      - name: Checkout scoreboard (CRG static files)
+        uses: actions/checkout@v4
+        with:
+          repository: rollerderby/scoreboard
+          path: scoreboard
+          sparse-checkout: html
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: derby-scoreboard-display/tests
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: derby-scoreboard-display/tests
+        run: npx playwright install chromium --with-deps
+
+      - name: Run Playwright tests
+        working-directory: derby-scoreboard-display/tests
+        env:
+          CRG_HTML_DIR: ${{ github.workspace }}/scoreboard/html
+          EOD_CUSTOM_DIR: ${{ github.workspace }}/derby-scoreboard-display/eod-custom-overlay
+        run: npx playwright test --reporter=html,list
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            derby-scoreboard-display/tests/playwright-report/
+            derby-scoreboard-display/tests/test-results/screenshots/
+            derby-scoreboard-display/tests/artifacts/
+          retention-days: 30
