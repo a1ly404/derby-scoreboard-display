@@ -11,7 +11,13 @@
  *   3. The star indicator shows "★" for lead, "SP" for star pass, "" for lost
  *   4. The flash colour contrast meets WCAG 4.5:1 against the bar
  */
-import { test, expect, loadState, contrastRatio, screenshotOverlayBar } from '../fixtures';
+import {
+  test,
+  expect,
+  loadState,
+  contrastRatio,
+  screenshotOverlayBar,
+} from "../fixtures";
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -20,9 +26,9 @@ async function getJammingAnimation(page: any, team: number) {
   return page.evaluate((t: number) => {
     // The Jamming element that shows the ★ for the active jammer
     const el = document.querySelector(
-      `.TeamBox [Team="${t}"] .JammerBox .Jamming`
+      `.TeamBox [Team="${t}"] .JammerBox .Jamming`,
     ) as HTMLElement | null;
-    if (!el) return 'NOT_FOUND';
+    if (!el) return "NOT_FOUND";
     return window.getComputedStyle(el).animationName;
   }, team);
 }
@@ -31,9 +37,9 @@ async function getJammingAnimation(page: any, team: number) {
 async function getJammingColor(page: any, team: number) {
   return page.evaluate((t: number) => {
     const el = document.querySelector(
-      `.TeamBox [Team="${t}"] .JammerBox .Jamming`
+      `.TeamBox [Team="${t}"] .JammerBox .Jamming`,
     ) as HTMLElement | null;
-    if (!el) return 'NOT_FOUND';
+    if (!el) return "NOT_FOUND";
     return window.getComputedStyle(el).color;
   }, team);
 }
@@ -42,18 +48,18 @@ async function getJammingColor(page: any, team: number) {
 async function getIndicatorText(page: any, team: number) {
   return page.evaluate((t: number) => {
     const el = document.querySelector(
-      `.TeamBox [Team="${t}"] .Indicator .Clock`
+      `.TeamBox [Team="${t}"] .Indicator .Clock`,
     ) as HTMLElement | null;
-    if (!el) return 'NOT_FOUND';
-    return el.textContent?.trim() ?? '';
+    if (!el) return "NOT_FOUND";
+    return el.textContent?.trim() ?? "";
   }, team);
 }
 
 /** Check if the .TeamBox has the InJam class */
 async function hasInJamClass(page: any) {
   return page.evaluate(() => {
-    const el = document.querySelector('.TeamBox') as HTMLElement | null;
-    return el?.classList.contains('InJam') ?? false;
+    const el = document.querySelector(".TeamBox") as HTMLElement | null;
+    return el?.classList.contains("InJam") ?? false;
   });
 }
 
@@ -61,25 +67,28 @@ async function hasInJamClass(page: any) {
 async function hasLeadClass(page: any, team: number) {
   return page.evaluate((t: number) => {
     const el = document.querySelector(
-      `.TeamBox [Team="${t}"]`
+      `.TeamBox [Team="${t}"]`,
     ) as HTMLElement | null;
-    return el?.classList.contains('Lead') ?? false;
+    return el?.classList.contains("Lead") ?? false;
   }, team);
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────
 
-test.describe('Lead Jammer Flash', () => {
-  test('no flash before jam starts', async ({ overlayPage }) => {
+test.describe("Lead Jammer Flash", () => {
+  test("no flash before jam starts", async ({ overlayPage }) => {
     // Initial state: InJam=false, no lead — should have no HasLead animation
     const anim = await getJammingAnimation(overlayPage, 1);
-    expect(anim).not.toContain('HasLead');
+    expect(anim).not.toContain("HasLead");
     const inJam = await hasInJamClass(overlayPage);
     expect(inJam).toBe(false);
   });
 
-  test('Team 1 lead flash activates during jam', async ({ overlayPage, pushState }) => {
-    const team1Lead = loadState('team1-lead');
+  test("Team 1 lead flash activates during jam", async ({
+    overlayPage,
+    pushState,
+  }) => {
+    const team1Lead = loadState("team1-lead");
     await pushState(team1Lead);
 
     // TeamBox should have InJam class
@@ -90,88 +99,162 @@ test.describe('Lead Jammer Flash', () => {
     const lead = await hasLeadClass(overlayPage, 1);
     expect(lead).toBe(true);
 
-    // The Jamming element should have an animation containing HasLead
+    // The Jamming element should use the per-team HasLead_T1 keyframe
     const anim = await getJammingAnimation(overlayPage, 1);
-    expect(anim).toMatch(/HasLead/);
+    expect(anim).toMatch(/^HasLead_T1$/);
+
+    const playState = await overlayPage.evaluate(() => {
+      const el = document.querySelector(
+        '.TeamBox [Team="1"] .JammerBox .Jamming',
+      ) as HTMLElement | null;
+      if (!el) return "NOT_FOUND";
+      return window.getComputedStyle(el).animationPlayState;
+    });
+    expect(playState).toBe("running");
 
     // Screenshot for visual verification
-    await screenshotOverlayBar(overlayPage, 'test-results/screenshots/team1-lead-flash.png');
+    await screenshotOverlayBar(
+      overlayPage,
+      "test-results/screenshots/team1-lead-flash.png",
+    );
   });
 
-  test('Team 2 lead flash activates during jam', async ({ overlayPage, pushState }) => {
-    const team2Lead = loadState('team2-lead');
+  test("Team 2 lead flash activates during jam", async ({
+    overlayPage,
+    pushState,
+  }) => {
+    const team2Lead = loadState("team2-lead");
     await pushState(team2Lead);
 
     const lead = await hasLeadClass(overlayPage, 2);
     expect(lead).toBe(true);
 
     const anim = await getJammingAnimation(overlayPage, 2);
-    expect(anim).toMatch(/HasLead/);
+    expect(anim).toMatch(/^HasLead_T2$/);
 
-    await screenshotOverlayBar(overlayPage, 'test-results/screenshots/team2-lead-flash.png');
+    const playState = await overlayPage.evaluate(() => {
+      const el = document.querySelector(
+        '.TeamBox [Team="2"] .JammerBox .Jamming',
+      ) as HTMLElement | null;
+      if (!el) return "NOT_FOUND";
+      return window.getComputedStyle(el).animationPlayState;
+    });
+    expect(playState).toBe("running");
+
+    await screenshotOverlayBar(
+      overlayPage,
+      "test-results/screenshots/team2-lead-flash.png",
+    );
   });
 
-  test('indicator shows ★ for lead', async ({ overlayPage, pushState }) => {
-    await pushState(loadState('team1-lead'));
+  test("indicator shows ★ for lead", async ({ overlayPage, pushState }) => {
+    await pushState(loadState("team1-lead"));
 
     const text = await getIndicatorText(overlayPage, 1);
-    expect(text).toBe('★');
+    expect(text).toBe("★");
 
     // Team 2 should NOT show ★ (they don't have lead)
     const text2 = await getIndicatorText(overlayPage, 2);
-    expect(text2).toBe('');
+    expect(text2).toBe("");
   });
 
-  test('indicator shows SP after star pass', async ({ overlayPage, pushState }) => {
+  test("indicator shows SP after star pass", async ({
+    overlayPage,
+    pushState,
+  }) => {
     // First give Team 1 lead in a jam
-    await pushState(loadState('team1-lead'));
+    await pushState(loadState("team1-lead"));
     // Then star pass
-    await pushState(loadState('team1-star-pass'));
+    await pushState(loadState("team1-star-pass"));
 
     const text = await getIndicatorText(overlayPage, 1);
-    expect(text).toBe('SP');
+    expect(text).toBe("SP");
 
     // Flash should NOT be active after star pass (lead=false)
     const lead = await hasLeadClass(overlayPage, 1);
     expect(lead).toBe(false);
 
-    await screenshotOverlayBar(overlayPage, 'test-results/screenshots/team1-star-pass.png');
+    await screenshotOverlayBar(
+      overlayPage,
+      "test-results/screenshots/team1-star-pass.png",
+    );
   });
 
-  test('indicator clears after lost lead', async ({ overlayPage, pushState }) => {
-    await pushState(loadState('team1-lead'));
-    await pushState(loadState('team1-lost'));
+  test("indicator clears after lost lead", async ({
+    overlayPage,
+    pushState,
+  }) => {
+    await pushState(loadState("team1-lead"));
+    await pushState(loadState("team1-lost"));
 
     const text = await getIndicatorText(overlayPage, 1);
-    expect(text).toBe('');
+    expect(text).toBe("");
 
     const lead = await hasLeadClass(overlayPage, 1);
     expect(lead).toBe(false);
   });
 
-  test('flash stops after jam ends', async ({ overlayPage, pushState }) => {
-    await pushState(loadState('team1-lead'));
+  test("flash stops after jam ends", async ({ overlayPage, pushState }) => {
+    await pushState(loadState("team1-lead"));
 
     // Verify flash is on
     let anim = await getJammingAnimation(overlayPage, 1);
     expect(anim).toMatch(/HasLead/);
 
     // End the jam
-    await pushState(loadState('jam-end'));
+    await pushState(loadState("jam-end"));
 
     const inJam = await hasInJamClass(overlayPage);
     expect(inJam).toBe(false);
+
+    // After jam ends, InJam class is removed so the CSS selector no longer matches
+    // and animation-name should fall back to 'none'
+    const animAfter = await getJammingAnimation(overlayPage, 1);
+    expect(animAfter, "Flash animation should stop after jam ends").not.toMatch(
+      /HasLead/,
+    );
   });
 
-  test('calloff keeps lead indicator showing ★', async ({ overlayPage, pushState }) => {
-    await pushState(loadState('team1-lead'));
-    await pushState(loadState('team1-calloff'));
+  test("calloff keeps lead indicator showing ★", async ({
+    overlayPage,
+    pushState,
+  }) => {
+    await pushState(loadState("team1-lead"));
+    await pushState(loadState("team1-calloff"));
 
     // Calloff should still show ★ (Lead=true, DisplayLead=true)
     const text = await getIndicatorText(overlayPage, 1);
-    expect(text).toBe('★');
+    expect(text).toBe("★");
 
     const lead = await hasLeadClass(overlayPage, 1);
+    expect(lead).toBe(true);
+  });
+
+  test("Team 2 lost lead clears indicator", async ({
+    overlayPage,
+    pushState,
+  }) => {
+    await pushState(loadState("team2-lead"));
+    await pushState(loadState("team2-lost"));
+
+    const text = await getIndicatorText(overlayPage, 2);
+    expect(text).toBe("");
+
+    const lead = await hasLeadClass(overlayPage, 2);
+    expect(lead).toBe(false);
+  });
+
+  test("Team 2 calloff keeps lead indicator showing ★", async ({
+    overlayPage,
+    pushState,
+  }) => {
+    await pushState(loadState("team2-lead"));
+    await pushState(loadState("team2-calloff"));
+
+    const text = await getIndicatorText(overlayPage, 2);
+    expect(text).toBe("★");
+
+    const lead = await hasLeadClass(overlayPage, 2);
     expect(lead).toBe(true);
   });
 });

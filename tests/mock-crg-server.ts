@@ -12,12 +12,12 @@
  *
  * Ported from derby-scoreboard-api/tests/conftest.py MockScoreboardServer.
  */
-import { WebSocketServer, WebSocket } from 'ws';
-import express from 'express';
-import http from 'http';
-import path from 'path';
-import fs from 'fs';
-import { AddressInfo } from 'net';
+import { WebSocketServer, WebSocket } from "ws";
+import express from "express";
+import http from "http";
+import path from "path";
+import fs from "fs";
+import { AddressInfo } from "net";
 
 export interface MockCRGServerOptions {
   /** Path to the CRG scoreboard html/ directory for static files */
@@ -47,7 +47,7 @@ export class MockCRGServer {
     if (!fs.existsSync(options.crgHtmlDir)) {
       throw new Error(
         `CRG html directory not found: ${options.crgHtmlDir}\n` +
-        'Set the CRG_HTML_DIR environment variable or check your local scoreboard/html path.'
+          "Set the CRG_HTML_DIR environment variable or check your local scoreboard/html path.",
       );
     }
     this._app.use(express.static(options.crgHtmlDir));
@@ -57,7 +57,7 @@ export class MockCRGServer {
       if (!fs.existsSync(dir)) {
         throw new Error(
           `Overlay directory not found: ${dir} (overlay: ${name})\n` +
-          'Set the EOD_CUSTOM_DIR environment variable or check your local overlay path.'
+            "Set the EOD_CUSTOM_DIR environment variable or check your local overlay path.",
         );
       }
       this._app.use(`/custom/${name}`, express.static(dir));
@@ -68,25 +68,36 @@ export class MockCRGServer {
   async start(): Promise<void> {
     return new Promise((resolve, reject) => {
       this._server = http.createServer(this._app);
-      this._wss = new WebSocketServer({ server: this._server, path: '/WS/' });
+      this._wss = new WebSocketServer({ server: this._server, path: "/WS/" });
 
-      this._wss.on('connection', (ws: WebSocket) => {
+      this._wss.on("connection", (ws: WebSocket) => {
         this._connections.add(ws);
-        ws.on('message', (raw: Buffer | string) => {
-          this._handleMessage(ws, raw.toString());
+        ws.on("message", (raw: import("ws").RawData) => {
+          let str: string;
+          if (typeof raw === "string") {
+            str = raw;
+          } else if (Buffer.isBuffer(raw)) {
+            str = raw.toString("utf-8");
+          } else if (raw instanceof ArrayBuffer) {
+            str = Buffer.from(raw).toString("utf-8");
+          } else {
+            // Buffer[] (rare but possible)
+            str = Buffer.concat(raw as Buffer[]).toString("utf-8");
+          }
+          this._handleMessage(ws, str);
         });
-        ws.on('close', () => {
+        ws.on("close", () => {
           this._connections.delete(ws);
         });
       });
 
-      this._server.listen(0, '127.0.0.1', () => {
+      this._server.listen(0, "127.0.0.1", () => {
         const addr = this._server!.address() as AddressInfo;
         this.port = addr.port;
         resolve();
       });
 
-      this._server.on('error', reject);
+      this._server.on("error", reject);
     });
   }
 
@@ -99,16 +110,23 @@ export class MockCRGServer {
       return;
     }
 
-    if (msg.action === 'Register') {
+    if (msg.action === "Register") {
       // Send full state snapshot
       ws.send(JSON.stringify({ state: this._state }));
       // Send a second message without WS.Device.Id to trigger AfterLoad callbacks
       ws.send(JSON.stringify({ state: {} }));
-    } else if (msg.action === 'Ping') {
-      ws.send(JSON.stringify({ Pong: '' }));
-    } else if (msg.action === 'Set') {
+    } else if (msg.action === "Ping") {
+      ws.send(JSON.stringify({ Pong: "" }));
+    } else if (msg.action === "Set") {
       // Accept Set commands (from admin panel interactions)
       if (msg.key && msg.value !== undefined) {
+        // Reject dangerous keys that could mutate the prototype chain
+        const FORBIDDEN_KEYS = new Set([
+          "__proto__",
+          "constructor",
+          "prototype",
+        ]);
+        if (FORBIDDEN_KEYS.has(msg.key)) return;
         this._state[msg.key] = msg.value;
         this._broadcast({ [msg.key]: msg.value });
       }
@@ -119,6 +137,8 @@ export class MockCRGServer {
   pushUpdate(patch: Record<string, any>): void {
     // Merge into internal state
     for (const [key, value] of Object.entries(patch)) {
+      if (key === "__proto__" || key === "constructor" || key === "prototype")
+        continue;
       if (value === null) {
         delete this._state[key];
       } else {
@@ -145,13 +165,23 @@ export class MockCRGServer {
 
   /** Reset state to initial */
   reset(): void {
+    // Build tombstones for keys that were added after initialisation
+    const tombstones: Record<string, null> = {};
+    for (const key of Object.keys(this._state)) {
+      if (!(key in this._options.initialState)) {
+        tombstones[key] = null;
+      }
+    }
     this._state = { ...this._options.initialState };
-    this._broadcast(this._state);
+    // Send tombstones first, then the fresh initial state
+    const resetPayload = { ...tombstones, ...this._options.initialState };
+    this._broadcast(resetPayload);
   }
 
   /** Stop the server */
   async stop(): Promise<void> {
     for (const ws of this._connections) {
+      ws.removeAllListeners("close"); // prevent close handler running after clear
       ws.close();
     }
     this._connections.clear();

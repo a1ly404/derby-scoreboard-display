@@ -1,0 +1,5 @@
+{
+  "_description": "Enable ShowNames mode — shows skater name instead of jersey number in the JammerBox lineup section",
+  "ScoreBoard.Settings.Setting(Overlay.Interactive.ShowNames)": true,
+  "ScoreBoard.Settings.Setting(Overlay.Interactive.ShowAllNames)": true
+}

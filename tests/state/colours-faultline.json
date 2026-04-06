@@ -1,0 +1,7 @@
+{
+  "_description": "Faultline league preset — bright teal bar. White fails 3.45:1, JS picks black flash.",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.fg)": "#0096bc",
+  "ScoreBoard.CurrentGame.Team(1).Color(overlay.bg)": "#000000",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.fg)": "#1f3264",
+  "ScoreBoard.CurrentGame.Team(2).Color(overlay.bg)": "#000000"
+}

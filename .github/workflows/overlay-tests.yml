@@ -2,7 +2,7 @@ name: Overlay Tests
 
 on:
   push:
-    branches: [main, 'tests/**', 'fix/**']
+    branches: [main, "tests/**", "fix/**"]
   pull_request:
     branches: [main]
 
@@ -25,17 +25,10 @@ jobs:
           path: scoreboard
           sparse-checkout: html
 
-      - name: Checkout eod-custom-overlay
-        uses: actions/checkout@v4
-        with:
-          repository: a1ly404/eod-custom-overlay
-          ref: fix/overlay-wcag-and-tests
-          path: eod-custom-overlay
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Install dependencies
         working-directory: derby-scoreboard-display/tests
@@ -49,7 +42,7 @@ jobs:
         working-directory: derby-scoreboard-display/tests
         env:
           CRG_HTML_DIR: ${{ github.workspace }}/scoreboard/html
-          EOD_CUSTOM_DIR: ${{ github.workspace }}/eod-custom-overlay
+          EOD_CUSTOM_DIR: ${{ github.workspace }}/derby-scoreboard-display/eod-custom-overlay
         run: npx playwright test --reporter=html,list
 
       - name: Upload test results

@@ -1,0 +1,6 @@
+{
+  "_description": "Team 2 jammer calls off jam — retains lead indicator (Calloff=true keeps Lead=true)",
+  "ScoreBoard.CurrentGame.Team(2).Calloff": true,
+  "ScoreBoard.CurrentGame.Team(2).Lead": true,
+  "ScoreBoard.CurrentGame.Team(2).DisplayLead": true
+}

@@ -10,6 +10,8 @@ as the previous one ends (mimics a real game with back-to-back jams).
 
 Ctrl+C gracefully stops the current jam and exits.
 """
+
+import argparse
 import asyncio
 import json
 import signal
@@ -18,34 +20,32 @@ import time
 
 import websockets
 
-HOST = "localhost"
-PORT = 8000
-URI  = f"ws://{HOST}:{PORT}/WS/"
-
-REGISTER_MSG = json.dumps({
-    "action": "Register",
-    "paths": [
-        "ScoreBoard.CurrentGame",
-        "ScoreBoard.Version(release)",
-    ],
-})
+REGISTER_MSG = json.dumps(
+    {
+        "action": "Register",
+        "paths": [
+            "ScoreBoard.CurrentGame",
+            "ScoreBoard.Version(release)",
+        ],
+    }
+)
 
 # ── Fake skater data ──────────────────────────────────────────────────────────
 # AlternateName(overlay) is used by the CRG overlay and IS settable mid-game.
 ROSTERS = {
     1: {
-        "Jammer":   ("Speed Demon",    "88"),
-        "Pivot":    ("Iron Curtain",   "22"),
-        "Blocker1": ("Brick Wall",     "11"),
-        "Blocker2": ("Crash Test",     "33"),
-        "Blocker3": ("Ricochet",       "44"),
+        "Jammer": ("Speed Demon", "88"),
+        "Pivot": ("Iron Curtain", "22"),
+        "Blocker1": ("Brick Wall", "11"),
+        "Blocker2": ("Crash Test", "33"),
+        "Blocker3": ("Ricochet", "44"),
     },
     2: {
-        "Jammer":   ("Lightning Bolt", "7"),
-        "Pivot":    ("Storm Front",    "55"),
-        "Blocker1": ("Ground Zero",    "66"),
-        "Blocker2": ("Shockwave",      "77"),
-        "Blocker3": ("Afterburn",      "99"),
+        "Jammer": ("Lightning Bolt", "7"),
+        "Pivot": ("Storm Front", "55"),
+        "Blocker1": ("Ground Zero", "66"),
+        "Blocker2": ("Shockwave", "77"),
+        "Blocker3": ("Afterburn", "99"),
     },
 }
 
@@ -65,7 +65,9 @@ async def seed(ws):
     # Set position RosterNumbers (these ARE writable on-track positions)
     for team_n, positions in ROSTERS.items():
         for pos, (name, number) in positions.items():
-            await ws.send(_set(_sb(f"Team({team_n}).Position({pos}).RosterNumber"), number))
+            await ws.send(
+                _set(_sb(f"Team({team_n}).Position({pos}).RosterNumber"), number)
+            )
         print(f"  Team {team_n} numbers set.")
 
     await asyncio.sleep(0.2)
@@ -74,17 +76,17 @@ async def seed(ws):
 
 
 async def main():
-    stop           = asyncio.Event()
-    state          = {}          # merged live state
-    last_in_jam    = None        # track in_jam transitions
-    jam_count      = 0
-    last_print     = 0.0
-    stopping_jam   = False       # guard against double StopJam
+    stop = asyncio.Event()
+    state = {}  # merged live state
+    last_in_jam = None  # track in_jam transitions
+    jam_count = 0
+    last_print = 0.0
+    stopping_jam = False  # guard against double StopJam
 
     def _sigint(*_):
         stop.set()
 
-    signal.signal(signal.SIGINT,  _sigint)
+    signal.signal(signal.SIGINT, _sigint)
     signal.signal(signal.SIGTERM, _sigint)
 
     try:
@@ -107,14 +109,20 @@ async def main():
                             state[k] = v
 
                     jam_running = state.get(_sb("Clock(Jam).Running"))
-                    in_jam      = state.get(_sb("InJam"))
-                    jam_ms      = state.get(_sb("Clock(Jam).Time"), 0)
-                    per_ms      = state.get(_sb("Clock(Period).Time"), 0)
-                    t1_score    = state.get(_sb("Team(1).Score"), 0)
-                    t2_score    = state.get(_sb("Team(2).Score"), 0)
+                    in_jam = state.get(_sb("InJam"))
+                    jam_ms = state.get(_sb("Clock(Jam).Time"), 0)
+                    per_ms = state.get(_sb("Clock(Period).Time"), 0)
+                    t1_score = state.get(_sb("Team(1).Score"), 0)
+                    t2_score = state.get(_sb("Team(2).Score"), 0)
 
                     # If jam clock expired but in_jam is still True, send StopJam
-                    if in_jam and not jam_running and jam_ms == 0 and not stopping_jam and not stop.is_set():
+                    if (
+                        in_jam
+                        and not jam_running
+                        and jam_ms == 0
+                        and not stopping_jam
+                        and not stop.is_set()
+                    ):
                         stopping_jam = True
                         await asyncio.sleep(0.2)
                         await ws.send(_set(_sb("StopJam"), True))
@@ -123,7 +131,7 @@ async def main():
                     # Auto-restart: fire when in_jam transitions True→False (lineup started)
                     if last_in_jam is True and in_jam is False and not stop.is_set():
                         stopping_jam = False
-                        await asyncio.sleep(1.0)   # let lineup clock tick briefly
+                        await asyncio.sleep(1.0)  # let lineup clock tick briefly
                         if not stop.is_set():
                             jam_count += 1
                             await ws.send(_set(_sb("StartJam"), True))
@@ -137,10 +145,11 @@ async def main():
                         last_print = now
                         running_str = "LIVE" if jam_running else "lineup"
                         print(
-                            f"\r  [{running_str}]  Jam {jam_ms//1000:>3}s  "
-                            f"Period {per_ms//1000:>4}s  "
+                            f"\r  [{running_str}]  Jam {jam_ms // 1000:>3}s  "
+                            f"Period {per_ms // 1000:>4}s  "
                             f"Score {t1_score}-{t2_score}   ",
-                            end="", flush=True,
+                            end="",
+                            flush=True,
                         )
 
                 except asyncio.TimeoutError:
@@ -163,5 +172,27 @@ async def main():
     print("Done.")
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Seed fake rosters and drive a live game on the CRG scoreboard."
+    )
+    parser.add_argument(
+        "--host",
+        default="localhost",
+        help="CRG scoreboard host (default: localhost)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="CRG scoreboard WebSocket port (default: 8000)",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
+    _args = _parse_args()
+    HOST = _args.host
+    PORT = _args.port
+    URI = f"ws://{HOST}:{PORT}/WS/"
     asyncio.run(main())

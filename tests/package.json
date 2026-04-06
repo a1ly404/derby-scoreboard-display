@@ -11,6 +11,7 @@
     "test:eod-custom": "npx playwright test --grep @eod-custom",
     "test:eod": "npx playwright test --grep @eod-overlay",
     "test:crg": "npx playwright test --grep @crg-overlay",
+    "test:screenshots": "npx playwright test --grep screenshots",
     "report": "npx playwright show-report"
   },
   "devDependencies": {
