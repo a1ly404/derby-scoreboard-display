@@ -688,7 +688,7 @@ test.describe("Same-Colour Conflict — T2 Bar Auto-Adjusted", () => {
         `[${preset.name}] T1/T2 bars must be distinguishable after adjustment`,
       ).toBeGreaterThanOrEqual(1.5);
 
-      // The T2 flash (trough) should also have been updated to the adjusted bar
+      // The T2 flash trough should NOT be the adjusted bar colour (text must stay readable)
       const t2Trough = await overlayPage.evaluate(
         (v: string) =>
           getComputedStyle(document.documentElement).getPropertyValue(v).trim(),
@@ -700,8 +700,29 @@ test.describe("Same-Colour Conflict — T2 Bar Auto-Adjusted", () => {
       ).not.toBe("");
       expect(
         t2Trough.toLowerCase().replace(/\s/g, ""),
-        `[${preset.name}] T2 flash trough should equal adjusted T2 bar`,
-      ).toBe(t2Bar.toLowerCase().replace(/\s/g, ""));
+        `[${preset.name}] T2 flash trough must not equal adjusted T2 bar (would be invisible)`,
+      ).not.toBe(t2Bar.toLowerCase().replace(/\s/g, ""));
+
+      // Trough must have readable contrast against the bar. For conflict-
+      // adjusted T2 bars (auto-lightened by CRG) the lightened colour may be
+      // mid-luminance, making it impossible for any candidate to hit 3.0:1.
+      // Relax to 2.0:1 here — the bar colour is outside our control.
+      const t2TroughRatio = contrastRatio(t2Trough, t2Bar);
+      expect(
+        t2TroughRatio,
+        `[${preset.name}] T2 flash trough (${t2Trough} on ${t2Bar}) must be readable (relaxed for conflict-adjusted bar)`,
+      ).toBeGreaterThanOrEqual(2.0);
+
+      // Peak and trough must be different colours
+      const t2Peak = await overlayPage.evaluate(
+        (v: string) =>
+          getComputedStyle(document.documentElement).getPropertyValue(v).trim(),
+        "--team2-flash-peak",
+      );
+      expect(
+        t2Peak.toLowerCase(),
+        `[${preset.name}] T2 flash peak and trough must differ`,
+      ).not.toBe(t2Trough.toLowerCase());
 
       await screenshotJammerSection(
         overlayPage,
