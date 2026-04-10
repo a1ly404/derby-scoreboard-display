@@ -16,7 +16,7 @@ const CRG_HTML_DIR =
   process.env.CRG_HTML_DIR || path.resolve(__dirname, "../../scoreboard/html");
 const EOD_CUSTOM_DIR =
   process.env.EOD_CUSTOM_DIR ||
-  path.resolve(__dirname, "../eod-custom-overlay");
+  path.resolve(__dirname, "../custom-overlays/eod-custom-overlay");
 const STATE_DIR = path.resolve(__dirname, "./state");
 
 /** Overlay name used in the mock server mount and URL path */
