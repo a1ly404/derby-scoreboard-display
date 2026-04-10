@@ -1,0 +1,3 @@
+[submodule "custom-overlays/eod-custom-overlay"]
+	path = custom-overlays/eod-custom-overlay
+	url = https://github.com/a1ly404/eod-custom-overlay.git

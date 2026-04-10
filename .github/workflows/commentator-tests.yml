@@ -1,14 +1,16 @@
-name: Overlay Tests
+name: Commentator Overlay Tests
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      overlay-branch:
+        description: "Branch of eod-custom-overlay to test"
+        required: false
+        default: "eod-commentator-overlay"
 
 jobs:
   test:
-    name: Playwright Overlay Tests
+    name: Playwright Commentator Overlay Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -17,6 +19,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Checkout eod-custom-overlay on specified branch
+        run: |
+          cd custom-overlays/eod-custom-overlay
+          git fetch origin ${{ github.event.inputs.overlay-branch }}
+          git checkout ${{ github.event.inputs.overlay-branch }}
 
       - name: Checkout scoreboard (CRG static files)
         uses: actions/checkout@v4
