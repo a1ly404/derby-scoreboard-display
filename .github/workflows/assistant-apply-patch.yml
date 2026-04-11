@@ -1,0 +1,294 @@
+name: Assistant Apply Patch
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull Request number to target (optional if triggering from PR comment)"
+        required: false
+        default: ""
+      patch_file:
+        description: "Path to patch file in repo (e.g. .github/patches/fix.patch). If empty, will try to extract patch from triggering comment."
+        required: false
+        default: ""
+      run_tests:
+        description: "Run test suite after applying patch (slower — default: false)"
+        required: false
+        default: "false"
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write # required to push commit via workflow when using GITHUB_TOKEN OR PAT
+  issues: write # to post comments on PR/issue
+  pull-requests: write
+
+jobs:
+  apply_patch:
+    name: Apply patch & (optionally) run tests
+    runs-on: ubuntu-latest
+    env:
+      # This workflow prefers a repo secret named ASSISTANT_PAT if present.
+      # If ASSISTANT_PAT is not set, it will fall back to GITHUB_TOKEN.
+      ASSISTANT_PAT: ${{ secrets.ASSISTANT_PAT }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install helpers
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+
+      - name: Determine trigger context and PR
+        id: pr-info
+        run: |
+          set -euo pipefail
+
+          # Default values
+          PR_NUMBER="${{ github.event.issue.number || '' }}" || PR_NUMBER=""
+          EVENT_NAME="${{ github.event_name }}"
+
+          echo "Event: $EVENT_NAME"
+
+          if [ "$EVENT_NAME" = "issue_comment" ]; then
+            BODY="$(jq -r .comment.body "$GITHUB_EVENT_PATH")"
+            echo "Comment body begins: ${BODY:0:120}"
+            # Only proceed if comment contains the apply command
+            if ! echo "$BODY" | grep -q -E '/apply-patch|/assistant-apply-patch|/apply-fix'; then
+              echo "No apply command found in comment — exiting early."
+              echo "::set-output name=skip::true"
+              exit 0
+            fi
+
+            # If the issue is a PR, `issue.pull_request.url` will exist
+            PR_URL=$(jq -r .issue.pull_request.url "$GITHUB_EVENT_PATH" 2>/dev/null || echo "")
+            if [ -z "$PR_URL" ] || [ "$PR_URL" = "null" ]; then
+              echo "Comment is not on a PR — cannot determine target PR. Exiting."
+              echo "::set-output name=skip::true"
+              exit 0
+            fi
+
+            # Fetch PR metadata
+            TOKEN="${ASSISTANT_PAT:-${GITHUB_TOKEN}}"
+            PR_JSON=$(curl -s -H "Authorization: token ${TOKEN}" -H "Accept: application/vnd.github.v3+json" "$PR_URL")
+            PR_NUMBER=$(echo "$PR_JSON" | jq -r .number)
+            PR_HEAD_REF=$(echo "$PR_JSON" | jq -r .head.ref)
+            PR_HEAD_REPO_CLONE_URL=$(echo "$PR_JSON" | jq -r .head.repo.clone_url)
+            PR_COMMENTS_URL=$(echo "$PR_JSON" | jq -r .comments_url)
+            echo "::set-output name=pr_number::$PR_NUMBER"
+            echo "::set-output name=pr_head_ref::$PR_HEAD_REF"
+            echo "::set-output name=pr_head_repo_clone_url::$PR_HEAD_REPO_CLONE_URL"
+            echo "::set-output name=pr_comments_url::$PR_COMMENTS_URL"
+            echo "::set-output name=triggered_by::issue_comment"
+            # Save the comment body for potential patch extraction
+            echo "::set-output name=comment_body::${BODY//$'\n'/\\n}"
+            exit 0
+          fi
+
+          # For manual workflow_dispatch, use inputs
+          INPUT_PR="${{ github.event.inputs.pr_number || '' }}" || INPUT_PR=""
+          INPUT_PATCH="${{ github.event.inputs.patch_file || '' }}" || INPUT_PATCH=""
+          if [ -n "$INPUT_PR" ]; then
+            PR_NUMBER="$INPUT_PR"
+            TOKEN="${ASSISTANT_PAT:-${GITHUB_TOKEN}}"
+            PR_JSON=$(curl -s -H "Authorization: token ${TOKEN}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER")
+            PR_HEAD_REF=$(echo "$PR_JSON" | jq -r .head.ref)
+            PR_HEAD_REPO_CLONE_URL=$(echo "$PR_JSON" | jq -r .head.repo.clone_url)
+            PR_COMMENTS_URL=$(echo "$PR_JSON" | jq -r .comments_url)
+            echo "::set-output name=pr_number::$PR_NUMBER"
+            echo "::set-output name=pr_head_ref::$PR_HEAD_REF"
+            echo "::set-output name=pr_head_repo_clone_url::$PR_HEAD_REPO_CLONE_URL"
+            echo "::set-output name=pr_comments_url::$PR_COMMENTS_URL"
+            echo "::set-output name=triggered_by::workflow_dispatch"
+            echo "::set-output name=patch_file::$INPUT_PATCH"
+            exit 0
+          fi
+
+          # If no PR specified, exit early
+          echo "No PR number provided and not triggered from a PR comment. Exiting."
+          echo "::set-output name=skip::true"
+          exit 0
+
+      - name: Stop if no action required
+        if: steps.pr-info.outputs.skip == 'true'
+        run: |
+          echo "No apply requested; skipping rest of job."
+
+      - name: Prepare token and git config
+        if: steps.pr-info.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          TOKEN="${ASSISTANT_PAT:-${GITHUB_TOKEN}}"
+          echo "Using token from ${ASSISTANT_PAT:+ASSISTANT_PAT}${ASSISTANT_PAT:+ (ASSISTANT_PAT) }${ASSISTANT_PAT:-}${ASSISTANT_PAT:+ }"
+          git config user.name "Assistant Patch Bot"
+          git config user.email "assistant-bot@example.com"
+          # Ensure we have the full history for patch application
+          git fetch --all
+
+      - name: Determine patch source and extract patch content
+        id: get-patch
+        if: steps.pr-info.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          PR_NUMBER="${{ steps.pr-info.outputs.pr_number }}"
+          COMMENT_BODY="${{ steps.pr-info.outputs.comment_body || '' }}" || COMMENT_BODY=""
+          INPUT_PATCH="${{ github.event.inputs.patch_file || '' }}" || INPUT_PATCH=""
+
+          CANDIDATE=""
+          # Prefer a provided patch file path (workflow_dispatch or input)
+          if [ -n "$INPUT_PATCH" ]; then
+            if [ -f "$INPUT_PATCH" ]; then
+              CANDIDATE="$INPUT_PATCH"
+              echo "Using provided patch file: $CANDIDATE"
+            else
+              echo "Provided patch file does not exist: $INPUT_PATCH"
+            fi
+          fi
+
+          # If no explicit patch file, look for .github/patches/<pr>.patch
+          if [ -z "$CANDIDATE" ]; then
+            PR_PATCH=".github/patches/pr-${PR_NUMBER}.patch"
+            GENERIC_PATCH=".github/patches/fix.patch"
+            if [ -f "$PR_PATCH" ]; then
+              CANDIDATE="$PR_PATCH"
+              echo "Found PR-specific patch: $CANDIDATE"
+            elif [ -f "$GENERIC_PATCH" ]; then
+              CANDIDATE="$GENERIC_PATCH"
+              echo "Found generic patch at: $CANDIDATE"
+            fi
+          fi
+
+          # If still no file, try to extract a fenced patch from the comment body
+          if [ -z "$CANDIDATE" ] && [ -n "$COMMENT_BODY" ]; then
+            # Extract the first fenced block (```patch or ```diff or ```)
+            PATCH_CONTENT=$(echo "$COMMENT_BODY" | awk '
+              BEGIN { inblock=0 }
+              /^```/ {
+                if (inblock==0) {
+                  # start of block
+                  inblock=1;
+                  next;
+                } else {
+                  # end of block
+                  inblock=0;
+                  exit;
+                }
+              }
+              {
+                if (inblock==1) print;
+              }'
+            )
+            if [ -n "$PATCH_CONTENT" ]; then
+              echo "Extracted patch from comment; saving to /tmp/comment.patch"
+              echo "$PATCH_CONTENT" > /tmp/comment.patch
+              CANDIDATE="/tmp/comment.patch"
+            else
+              echo "No fenced code patch found in comment body."
+            fi
+          fi
+
+          if [ -z "$CANDIDATE" ]; then
+            echo "No patch source found. Nothing to apply."
+            echo "::set-output name=patch_found::false"
+            exit 0
+          fi
+
+          # Normalize output
+          echo "::set-output name=patch_found::true"
+          echo "::set-output name=patch_path::$CANDIDATE"
+
+      - name: Stop if no patch found
+        if: steps.get-patch.outputs.patch_found == 'false'
+        run: |
+          echo "No patch found — exiting."
+
+      - name: Apply patch
+        if: steps.get-patch.outputs.patch_found == 'true'
+        run: |
+          set -euo pipefail
+          PATCH_PATH="${{ steps.get-patch.outputs.patch_path }}"
+          PR_BRANCH="${{ steps.pr-info.outputs.pr_head_ref }}"
+          echo "Preparing to apply patch from $PATCH_PATH to branch $PR_BRANCH"
+
+          # Make sure we are on the PR branch locally (create if necessary)
+          git fetch origin "$PR_BRANCH":"refs/remotes/origin/$PR_BRANCH" || true
+          git checkout -B "apply-patch-temp/$PR_BRANCH" "origin/$PR_BRANCH" || git checkout -B "apply-patch-temp/$PR_BRANCH"
+
+          # Try applying the patch
+          if git apply --index --whitespace=fix "$PATCH_PATH"; then
+            echo "Patch applied cleanly."
+          else
+            echo "Patch failed to apply cleanly. Attempting 3-way apply with git am..."
+            # Try converting to mail format and am
+            mv "$PATCH_PATH" /tmp/patch.raw || true
+            git apply --reject --whitespace=fix /tmp/patch.raw || true
+          fi
+
+          # If there are no changes, exit gracefully
+          if git diff --staged --quiet && git diff --quiet; then
+            echo "No changes produced by the patch. Nothing to commit."
+            echo "::set-output name=was_committed::false"
+            exit 0
+          fi
+
+          # Commit changes
+          git add -A
+          git commit -m "chore: apply assistant patch (PR #${{ steps.pr-info.outputs.pr_number }})" || echo "No commit created (maybe whitespace-only changes)"
+
+          # Push using token (prefer ASSISTANT_PAT, else GITHUB_TOKEN)
+          TOKEN="${ASSISTANT_PAT:-${GITHUB_TOKEN}}"
+          # Set remote URL to include token for authenticated push in CI context
+          REPO="${{ github.repository }}"
+          git remote set-url origin "https://x-access-token:${TOKEN}@github.com/${REPO}.git"
+          echo "Pushing commit to origin ${PR_BRANCH}"
+          git push origin "HEAD:${PR_BRANCH}"
+          echo "::set-output name=was_committed::true"
+
+      - name: Run tests (optional)
+        if: steps.get-patch.outputs.patch_found == 'true' && ${{ github.event.inputs.run_tests == 'true' || contains(github.event.comment.body || '', '/run-tests') }}
+        run: |
+          set -euo pipefail
+          echo "Running Playwright tests (this may take a while)..."
+          # Use the overlay tests that's part of this repository
+          # Adjust working dir if needed
+          if [ -d "derby-overlay-tests" ]; then
+            cd derby-overlay-tests
+            npm ci
+            npx playwright install --with-deps chromium
+            npx playwright test --reporter=list
+          elif [ -d "derby-scoreboard-display/tests" ]; then
+            cd derby-scoreboard-display/tests
+            npm ci
+            npx playwright install --with-deps chromium
+            npx playwright test --reporter=list
+          else
+            echo "No tests directory found; skipping tests."
+          fi
+
+      - name: Post result comment to PR
+        if: steps.get-patch.outputs.patch_found == 'true'
+        run: |
+          set -euo pipefail
+          TOKEN="${ASSISTANT_PAT:-${GITHUB_TOKEN}}"
+          PR_NUMBER="${{ steps.pr-info.outputs.pr_number }}"
+          PR_COMMENTS_URL="${{ steps.pr-info.outputs.pr_comments_url }}"
+          if [ -z "$PR_COMMENTS_URL" ] || [ "$PR_COMMENTS_URL" = "null" ]; then
+            # build comments URL
+            PR_COMMENTS_URL="https://api.github.com/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments"
+          fi
+
+          BODY="Assistant patch applied by workflow.\n\n- PR: #${PR_NUMBER}\n- Patch: ${{ steps.get-patch.outputs.patch_path }}\n- Commit pushed to branch: ${{ steps.pr-info.outputs.pr_head_ref }}\n\nIf you want me to re-run tests or apply an updated patch, comment with \`/apply-patch\` and include the updated patch in \`.github/patches/\` or in a fenced block in the comment."
+
+          # Post the comment
+          curl -s -H "Authorization: token ${TOKEN}" -H "Content-Type: application/json" \
+            -d "$(jq -n --arg body "$BODY" '{body:$body}')" \
+            "$PR_COMMENTS_URL" >/dev/null
+          echo "Posted comment to PR $PR_NUMBER."
+
+      - name: Final output
+        run: |
+          echo "Done. If the workflow pushed a commit, check the PR for updates. If a push was blocked by branch protection, consider enabling the PAT with required scopes or adjust protection rules for the bot."
