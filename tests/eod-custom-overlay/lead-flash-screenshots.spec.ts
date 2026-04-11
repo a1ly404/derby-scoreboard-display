@@ -7,11 +7,11 @@
  * not the trough frame where text blends into the bar and is invisible.
  *
  * Five representative team colours are tested to cover the full spectrum:
- *   1. Navy (#1f3264)   — dark bar → white/yellow pulse
- *   2. Red (#ff2100)    — red bar → black/white pulse
- *   3. Teal (#0096bc)   — mid-luminance bar → black/white pulse
- *   4. Black (#000000)  — darkest bar → red/white pulse
- *   5. White (#ffffff)  — lightest bar → black/red pulse
+ *   1. Navy (#1f3264)   — dark bar → white/yellow pulse (white flash)
+ *   2. Red (#ff2100)    — red bar → black/white pulse (black flash; red-on-red avoided)
+ *   3. Teal (#0096bc)   — mid-luminance bar → black/white pulse (black flash)
+ *   4. Black (#000000)  — darkest bar → red/white pulse (red flash; classic derby)
+ *   5. White (#ffffff)  — lightest bar → black/red pulse (black flash)
  *
  * Each screenshot captures the JammerBox lineup section with the flash
  * colour frozen so you can clearly see the text colour change.
@@ -117,7 +117,7 @@ const FLASH_COLOURS = [
     expectedPeak: "#ffffff",
     expectedTrough: "#ff0000",
     description:
-      "White/red pulse on dark navy — both colours readable, distinct pulse",
+      "White flash on dark navy — high contrast, classic look (white/yellow pulse in some presets).",
   },
   {
     name: "Red",
@@ -127,7 +127,7 @@ const FLASH_COLOURS = [
     expectedPeak: "#000000",
     expectedTrough: "#ffffff",
     description:
-      "Black/white pulse on red — text always visible throughout animation",
+      "Black flash on red — red-on-red avoided; black ensures readable WCAG contrast.",
   },
   {
     name: "Teal",
@@ -137,7 +137,7 @@ const FLASH_COLOURS = [
     expectedPeak: "#000000",
     expectedTrough: "#ffffff",
     description:
-      "Black/white pulse on teal — text always visible throughout animation",
+      "Black flash on teal — mid-luminance bar, black is required to meet contrast.",
   },
   {
     name: "Black",
@@ -147,7 +147,7 @@ const FLASH_COLOURS = [
     expectedPeak: "#ff0000",
     expectedTrough: "#ffffff",
     description:
-      "Red/white pulse on black — classic derby indicator, high contrast",
+      "Red flash on black — the classic derby lead indicator with high contrast.",
   },
   {
     name: "White",
@@ -156,8 +156,7 @@ const FLASH_COLOURS = [
     barColour: "#ffffff",
     expectedPeak: "#000000",
     expectedTrough: "#ff0000",
-    description:
-      "Black/red pulse on white — both colours contrast against white",
+    description: "Black flash on white — only black achieves WCAG on white.",
   },
 ] as const;
 
