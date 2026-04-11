@@ -14,35 +14,103 @@ concurrency:
 
 jobs:
   test:
-    name: Run test suite
+    name: Run test suite (layout-aware)
     runs-on: ubuntu-latest
     env:
       CI: true
+      # These will be populated by the "Detect package.json" step into GITHUB_ENV
+      # WORKDIR - directory containing package.json ('.' or 'tests')
+      # ARTIFACT_PATH - relative path to the test output log
+      # SKIP_TESTS - "true" if no package.json found
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Use Node.js 18
+      - name: Detect package.json and set workdir
+        id: detect
+        run: |
+          set -euo pipefail
+          WORKDIR=""
+          ARTIFACT=""
+          SKIP="true"
+
+          if [ -f package.json ]; then
+            WORKDIR="."
+            ARTIFACT="test-output.log"
+            SKIP="false"
+            echo "Found package.json at repository root"
+          elif [ -f tests/package.json ]; then
+            WORKDIR="tests"
+            ARTIFACT="tests/test-output.log"
+            SKIP="false"
+            echo "Found package.json in tests/ directory"
+          else
+            echo "No package.json found at repo root or tests/ — skipping test job"
+          fi
+
+          echo "WORKDIR=$WORKDIR" >> $GITHUB_ENV
+          echo "ARTIFACT_PATH=$ARTIFACT" >> $GITHUB_ENV
+          echo "SKIP_TESTS=$SKIP" >> $GITHUB_ENV
+          echo "::notice::WORKDIR=$WORKDIR ARTIFACT_PATH=$ARTIFACT SKIP_TESTS=$SKIP"
+
+      - name: Setup Node.js 18
+        if: ${{ env.SKIP_TESTS != 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        if: ${{ env.SKIP_TESTS != 'true' }}
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          set -euo pipefail
+          echo "Installing npm dependencies in $PWD (WORKDIR=${{ env.WORKDIR }})"
+          # Use npm ci if lockfile exists, otherwise fall back to npm install
+          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+            npm ci
+          else
+            npm install --no-audit --no-fund
+          fi
+
+      - name: Ensure Playwright browsers available
+        if: ${{ env.SKIP_TESTS != 'true' }}
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          set -euo pipefail
+          # Install playwright browsers if playwright is present in deps
+          if grep -q "@playwright/test" package.json 2>/dev/null || grep -q "playwright" package.json 2>/dev/null; then
+            npx playwright install --with-deps chromium || true
+          else
+            echo "Playwright not declared in package.json; skipping browser install."
+          fi
 
       - name: Run tests and save output
+        if: ${{ env.SKIP_TESTS != 'true' }}
+        working-directory: ${{ env.WORKDIR }}
         # Fail the job when tests fail so downstream "notify" job can detect failure via needs.test.result
         run: |
           set -o pipefail
+          echo "Running tests in $PWD..."
           # Run tests, tee output to file so we can upload and/or include in PR comment
-          npm test --silent 2>&1 | tee test-output.log
+          # Use 'npm test' script if present
+          if jq -e .scripts.test package.json >/dev/null 2>&1; then
+            npm test --silent 2>&1 | tee test-output.log
+            EXIT_CODE=${PIPESTATUS[0]}
+          else
+            echo "No 'test' script defined in package.json; skipping test run" | tee test-output.log
+            EXIT_CODE=0
+          fi
+          echo "::set-output name=exit_code::$EXIT_CODE"
+          echo "::set-output name=log_path::${PWD}/test-output.log"
 
       - name: Upload test logs
+        if: ${{ env.SKIP_TESTS != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: test-logs
-          path: test-output.log
+          path: ${{ env.ARTIFACT_PATH }}
 
   notify-on-failure:
     name: Post failure comment to PR

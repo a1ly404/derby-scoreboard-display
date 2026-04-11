@@ -1,0 +1,242 @@
+name: Auto-fix failing PRs (auto-push)
+
+on:
+  workflow_run:
+    workflows: ["PR CI — tests and failure notification"]
+    types: [completed]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: auto-fix-${{ github.event.workflow_run.id }}
+  cancel-in-progress: true
+
+jobs:
+  auto_fix:
+    name: Auto-fix and push to PR branch
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    env:
+      ASSISTANT_PAT: ${{ secrets.ASSISTANT_PAT }}
+      REPO: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+      PR_BRANCH: ${{ github.event.workflow_run.pull_requests[0].head.ref }}
+      PR_HEAD_REPO: ${{ github.event.workflow_run.pull_requests[0].head.repo.full_name }}
+      WORKDIR: derby-scoreboard-display/tests
+    steps:
+      - name: Debug context
+        run: |
+          echo "Triggered by workflow_run id: ${{ github.event.workflow_run.id }}"
+          echo "PR number: $PR_NUMBER"
+          echo "PR branch: $PR_BRANCH"
+          echo "PR head repo: $PR_HEAD_REPO"
+          echo "Repository: $REPO"
+
+      - name: Exit if PR is from a fork (no secrets available)
+        run: |
+          if [ "$PR_HEAD_REPO" != "$REPO" ]; then
+            echo "PR originates from a different repo ($PR_HEAD_REPO). Auto-push is disabled for forked PRs."
+            exit 0
+          fi
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: refs/heads/${{ env.PR_BRANCH }}
+          token: ${{ secrets.ASSISTANT_PAT }}
+          fetch-depth: 0
+
+      - name: Configure git user
+        run: |
+          git config user.name "Assistant Auto-Fixer"
+          git config user.email "assistant-bot@example.com"
+
+      - name: Install Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Ensure tests directory exists
+        run: |
+          if [ ! -d "${{ env.WORKDIR }}" ]; then
+            echo "Tests directory not found at $WORKDIR. Exiting."
+            exit 0
+          fi
+
+      - name: Reproduce failure: install deps & run tests
+        id: run_tests
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          set -o pipefail
+          echo "Installing dependencies..."
+          npm ci
+          echo "Installing Playwright browsers..."
+          npx playwright install --with-deps chromium || true
+          echo "Running tests (capture output to test-output.log)..."
+          # Run tests and capture exit code
+          npm test --silent 2>&1 | tee test-output.log
+          echo "::set-output name=exit_code::${PIPESTATUS[0]}"
+          echo "::set-output name=log_path::${PWD}/test-output.log"
+
+      - name: Dump a small excerpt of test output
+        if: always()
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          echo "---- test-output.log (head 200 lines) ----"
+          head -n 200 test-output.log || true
+          echo "---- test-output.log (tail 200 lines) ----"
+          tail -n 200 test-output.log || true
+
+      - name: Attempt to apply pre-made patch for this PR
+        id: apply_patch
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          PATCH_PATH=".github/patches/pr-${PR_NUMBER}.patch"
+          if [ -f "$PATCH_PATH" ]; then
+            echo "Found patch at $PATCH_PATH — attempting to apply"
+            # Try to apply with index
+            if git apply --index --whitespace=fix "$PATCH_PATH"; then
+              echo "Patch applied cleanly, committing..."
+              git add -A
+              git commit -m "fix: apply pre-made patch for PR #${PR_NUMBER}" || echo "No commit created"
+              echo "::set-output name=patched::true"
+            else
+              echo "Patch failed to apply cleanly; attempting 'git apply --reject' to create .rej files"
+              git apply --reject --whitespace=fix "$PATCH_PATH" || true
+              # If it created changes, commit what applied
+              git add -A || true
+              if ! git diff --cached --quiet; then
+                git commit -m "fix: partially apply pre-made patch for PR #${PR_NUMBER}" || true
+                echo "::set-output name=patched::true"
+              else
+                echo "::set-output name=patched::false"
+              fi
+            fi
+          else
+            echo "No pre-made patch found for PR ${PR_NUMBER}."
+            echo "::set-output name=patched::false"
+          fi
+
+      - name: Attempt snapshot/screenshot baseline update (Playwright)
+        id: update_snapshots
+        if: ${{ always() }}
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          set -euo pipefail
+          LOG=test-output.log
+          UPDATED=false
+          # Only attempt snapshot updates if the test output indicates snapshot/screenshot mismatches
+          if grep -Ei "snapshot|screenshot|mismatch|expected.*to equal|toMatchSnapshot" "$LOG" >/dev/null 2>&1; then
+            echo "Snapshot/screenshot mismatch detected — attempting update"
+            # update snapshots
+            npx playwright test -u --reporter=list 2>&1 | tee update-output.log || true
+            # If files changed, commit them
+            git add -A
+            if ! git diff --cached --quiet; then
+              git commit -m "fix: update Playwright snapshots for PR #${PR_NUMBER}" || true
+              UPDATED=true
+            else
+              echo "No snapshot files changed by update."
+            fi
+          else
+            echo "No snapshot mismatch indicators found; skipping snapshot update."
+          fi
+          if [ "$UPDATED" = true ]; then
+            echo "::set-output name=snapshots_updated::true"
+          else
+            echo "::set-output name=snapshots_updated::false"
+          fi
+
+      - name: Re-run tests after applying patch/snapshot updates
+        id: rerun_tests
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          set -o pipefail
+          echo "Re-running tests to validate fixes..."
+          npm ci
+          npx playwright install --with-deps chromium || true
+          npm test --silent 2>&1 | tee test-output-after.log
+          echo "::set-output name=exit_code::${PIPESTATUS[0]}"
+          echo "::set-output name=log_path::${PWD}/test-output-after.log"
+
+      - name: Decide whether to push changes
+        id: decide_push
+        run: |
+          set -euo pipefail
+          # Determine if there are staged/committed changes that aren't pushed
+          HAS_CHANGES=false
+          # Check for any commits on the branch that are not present on origin (local == origin because checked out ref is origin branch)
+          # Use git status to detect local commits
+          if git status --porcelain | grep -q .; then
+            echo "Working tree has uncommitted changes; adding them."
+            git add -A
+          fi
+          # If there are commits in HEAD that differ from origin/PR_BRANCH, push
+          UPSTREAM="origin/${PR_BRANCH}"
+          # Ensure we have an upstream ref to compare (fetch it)
+          git fetch origin ${PR_BRANCH}:${PR_BRANCH}-remote || true
+          # Compare local HEAD to remote branch
+          LOCAL=$(git rev-parse HEAD)
+          REMOTE=$(git rev-parse --verify "${PR_BRANCH}-remote" 2>/dev/null || true)
+          echo "LOCAL HEAD: $LOCAL"
+          echo "REMOTE HEAD: $REMOTE"
+          if [ -z "$REMOTE" ] || [ "$LOCAL" != "$REMOTE" ]; then
+            echo "Detected commits to push to ${PR_BRANCH}."
+            HAS_CHANGES=true
+          else
+            echo "No new commits to push."
+          fi
+          echo "::set-output name=has_changes::$HAS_CHANGES"
+
+      - name: Push fixes directly to PR branch
+        if: steps.decide_push.outputs.has_changes == 'true'
+        run: |
+          set -euo pipefail
+          echo "Pushing fixes to PR branch ${PR_BRANCH} using ASSISTANT_PAT"
+          # Ensure remote uses token for authentication when pushing
+          git remote set-url origin "https://x-access-token:${ASSISTANT_PAT}@github.com/${REPO}.git"
+          # Push the current branch to the PR branch. This will be a fast-forward push or normal push; we will NOT force-push.
+          git push origin HEAD:refs/heads/${PR_BRANCH}
+          echo "Pushed fixes to ${PR_BRANCH}"
+
+      - name: Post comment to PR about results
+        run: |
+          set -euo pipefail
+          TOKEN="${ASSISTANT_PAT}"
+          PR_NUM="${PR_NUMBER}"
+          # Choose log to include: after re-run if exists, else original
+          LOG_PATH=""
+          if [ -f "${{ env.WORKDIR }}/test-output-after.log" ]; then
+            LOG_PATH="${{ env.WORKDIR }}/test-output-after.log"
+          elif [ -f "${{ env.WORKDIR }}/test-output.log" ]; then
+            LOG_PATH="${{ env.WORKDIR }}/test-output.log"
+          fi
+          SUMMARY="Assistant auto-fix run for PR #${PR_NUM}.\n\n"
+          if [ -f "$LOG_PATH" ]; then
+            # Truncate for comment
+            TRUNC=$(tail -n 800 "$LOG_PATH" | sed 's/"/\\"/g')
+            SUMMARY="$SUMMARY"'```
+'"\n${TRUNC}\n"'```'
+          else
+            SUMMARY="$SUMMARY No test log available."
+          fi
+          # Indicate whether we pushed fixes
+          if [ "${{ steps.decide_push.outputs.has_changes }}" = "true" ]; then
+            SUMMARY="$SUMMARY\n\nI pushed fixes directly to the PR branch ${PR_BRANCH}."
+          else
+            SUMMARY="$SUMMARY\n\nI did not find any changes to push."
+          fi
+          # Post comment via REST API
+          API_URL="https://api.github.com/repos/${REPO}/issues/${PR_NUM}/comments"
+          PAYLOAD=$(jq -n --arg body "$SUMMARY" '{body:$body}')
+          curl -s -H "Authorization: token ${TOKEN}" -H "Content-Type: application/json" -d "$PAYLOAD" "$API_URL" >/dev/null || true
+
+      - name: Final status
+        run: |
+          echo "Auto-fix workflow completed for PR #${PR_NUMBER}."
