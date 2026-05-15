@@ -99,14 +99,15 @@ test.describe('Team Name Display', () => {
     expect(name).toBe('Denver Roller Derby');
   });
 
-  test('long name over 28 chars truncates to first word', async ({ overlayPage, pushState }) => {
-    // "Saskatoon Prairie Wheat Kings Roller Derby" is 42 chars → truncated to "Saskatoon"
+  test('long name over 36 chars truncates at word boundary', async ({ overlayPage, pushState }) => {
+    // "Saskatoon Prairie Wheat Kings Roller Derby" is 42 chars (>36 max)
+    // last space within first 36 chars is at index 29 → returns first 29 chars
     await pushState({
       'ScoreBoard.CurrentGame.Team(1).Name': 'Saskatoon Prairie Wheat Kings Roller Derby',
     });
     await overlayPage.waitForTimeout(300);
     const name = await getText(overlayPage, `.TeamBox [Team="1"] .Name`);
-    expect(name).toBe('Saskatoon');
+    expect(name).toBe('Saskatoon Prairie Wheat Kings');
   });
 
   test('exactly 28 char name displays in full', async ({ overlayPage, pushState }) => {
@@ -120,25 +121,25 @@ test.describe('Team Name Display', () => {
     expect(name).toBe(exactName);
   });
 
-  test('29 char name truncates to first word', async ({ overlayPage, pushState }) => {
-    // 29 characters with a space — should truncate to first word
+  test('29 char name is within 36-char limit and displays in full', async ({ overlayPage, pushState }) => {
+    // 29 characters — under the new TEAM_NAME_MAX=36, no truncation needed
     await pushState({
       'ScoreBoard.CurrentGame.Team(1).Name': 'ABCDEFGHIJKLMNO QRSTUVWXYZ123',
     });
     await overlayPage.waitForTimeout(300);
     const name = await getText(overlayPage, `.TeamBox [Team="1"] .Name`);
-    expect(name).toBe('ABCDEFGHIJKLMNO');
+    expect(name).toBe('ABCDEFGHIJKLMNO QRSTUVWXYZ123');
   });
 
-  test('extremely long single-word name shows in full (no space to split)', async ({ overlayPage, pushState }) => {
-    // 50-char name with NO spaces — ovlToFirstWord returns full string
+  test('extremely long single-word name is hard-clipped to 36 chars', async ({ overlayPage, pushState }) => {
+    // 50-char name with NO spaces — no word boundary found, hard clip at TEAM_NAME_MAX=36
     const longNoSpace = 'A'.repeat(50);
     await pushState({
       'ScoreBoard.CurrentGame.Team(1).Name': longNoSpace,
     });
     await overlayPage.waitForTimeout(300);
     const name = await getText(overlayPage, `.TeamBox [Team="1"] .Name`);
-    expect(name).toBe(longNoSpace);
+    expect(name).toBe('A'.repeat(36));
 
     // Screenshot to verify overflow behaviour at 1080p
     await screenshotOverlayBar(overlayPage, 'test-results/screenshots/team-name-overflow-long.png');
@@ -151,11 +152,11 @@ test.describe('Team Name Display', () => {
     });
     await overlayPage.waitForTimeout(300);
 
-    // Both should truncate to first word since they exceed 28 chars
+    // Both exceed 36 chars; truncated at last word boundary within first 36 chars
     const name1 = await getText(overlayPage, `.TeamBox [Team="1"] .Name`);
     const name2 = await getText(overlayPage, `.TeamBox [Team="2"] .Name`);
-    expect(name1).toBe('The');
-    expect(name2).toBe('Another');
+    expect(name1).toBe('The Incredibly Long Team Name That');
+    expect(name2).toBe('Another Ridiculously Extended');
 
     await screenshotOverlayBar(overlayPage, 'test-results/screenshots/team-names-long-both.png');
   });
