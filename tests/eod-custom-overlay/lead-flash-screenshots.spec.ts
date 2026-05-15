@@ -7,11 +7,11 @@
  * not the trough frame where text blends into the bar and is invisible.
  *
  * Five representative team colours are tested to cover the full spectrum:
- *   1. Navy (#1f3264)   — dark bar → white flash
- *   2. Red (#ff2100)    — red bar → black flash (red-on-red avoided)
- *   3. Teal (#0096bc)   — mid-luminance bar → black flash
- *   4. Black (#000000)  — darkest bar → red flash (classic derby)
- *   5. White (#ffffff)  — lightest bar → black flash
+ *   1. Navy (#1f3264)   — dark bar → white/yellow pulse (white flash)
+ *   2. Red (#ff2100)    — red bar → black/white pulse (black flash; red-on-red avoided)
+ *   3. Teal (#0096bc)   — mid-luminance bar → black/white pulse (black flash)
+ *   4. Black (#000000)  — darkest bar → red/white pulse (red flash; classic derby)
+ *   5. White (#ffffff)  — lightest bar → black/red pulse (black flash)
  *
  * Each screenshot captures the JammerBox lineup section with the flash
  * colour frozen so you can clearly see the text colour change.
@@ -45,9 +45,7 @@ async function freezeFlashAtPeak(page: any): Promise<void> {
     });
 
     // Also freeze the indicator ★ in the Indicator box
-    const indicators = document.querySelectorAll(
-      ".TeamBox .Indicator .Clock",
-    );
+    const indicators = document.querySelectorAll(".TeamBox .Indicator .Clock");
     indicators.forEach((el: Element) => {
       const htmlEl = el as HTMLElement;
       htmlEl.style.animationPlayState = "paused";
@@ -117,7 +115,9 @@ const FLASH_COLOURS = [
     teamNum: 1,
     barColour: "#1f3264",
     expectedPeak: "#ffffff",
-    description: "White flash on dark navy — high contrast, classic look",
+    expectedTrough: "#ff0000",
+    description:
+      "White flash on dark navy — high contrast, classic look (white/yellow pulse in some presets).",
   },
   {
     name: "Red",
@@ -125,8 +125,9 @@ const FLASH_COLOURS = [
     teamNum: 1,
     barColour: "#ff2100",
     expectedPeak: "#000000",
+    expectedTrough: "#ffffff",
     description:
-      "Black flash on red — red flash would be invisible, black ensures WCAG",
+      "Black flash on red — red-on-red avoided; black ensures readable WCAG contrast.",
   },
   {
     name: "Teal",
@@ -134,8 +135,9 @@ const FLASH_COLOURS = [
     teamNum: 1,
     barColour: "#0096bc",
     expectedPeak: "#000000",
+    expectedTrough: "#ffffff",
     description:
-      "Black flash on teal — mid-luminance bar, only black passes 4.5:1",
+      "Black flash on teal — mid-luminance bar, black is required to meet contrast.",
   },
   {
     name: "Black",
@@ -143,8 +145,9 @@ const FLASH_COLOURS = [
     teamNum: 1,
     barColour: "#000000",
     expectedPeak: "#ff0000",
+    expectedTrough: "#ffffff",
     description:
-      "Red flash on black — the classic derby lead indicator, high contrast",
+      "Red flash on black — the classic derby lead indicator with high contrast.",
   },
   {
     name: "White",
@@ -152,7 +155,8 @@ const FLASH_COLOURS = [
     teamNum: 1,
     barColour: "#ffffff",
     expectedPeak: "#000000",
-    description: "Black flash on white — only black achieves WCAG on white",
+    expectedTrough: "#ff0000",
+    description: "Black flash on white — only black achieves WCAG on white.",
   },
 ] as const;
 
@@ -179,20 +183,16 @@ test.describe("Lead Flash Peak-Capture Screenshots", () => {
       await waitForJammerBoxVisible(overlayPage, 2);
 
       // 4. Verify the per-team keyframe animation is active
-      const animName = await overlayPage.evaluate(
-        (t: number) => {
-          const el = document.querySelector(
-            `.TeamBox [Team="${t}"] .JammerBox .Jamming`,
-          ) as HTMLElement | null;
-          if (!el) return "NOT_FOUND";
-          return window.getComputedStyle(el).animationName;
-        },
-        colour.teamNum,
+      const animName = await overlayPage.evaluate((t: number) => {
+        const el = document.querySelector(
+          `.TeamBox [Team="${t}"] .JammerBox .Jamming`,
+        ) as HTMLElement | null;
+        if (!el) return "NOT_FOUND";
+        return window.getComputedStyle(el).animationName;
+      }, colour.teamNum);
+      expect(animName, `Animation should be HasLead_T${colour.teamNum}`).toBe(
+        `HasLead_T${colour.teamNum}`,
       );
-      expect(
-        animName,
-        `Animation should be HasLead_T${colour.teamNum}`,
-      ).toBe(`HasLead_T${colour.teamNum}`);
 
       // 5. Verify CSS custom properties are set
       const peak = await getCssVar(
@@ -216,6 +216,25 @@ test.describe("Lead Flash Peak-Capture Screenshots", () => {
 
       // 7. Verify expected peak colour
       expect(peak.toLowerCase()).toBe(colour.expectedPeak.toLowerCase());
+
+      // 7b. Verify expected trough colour
+      expect(trough.toLowerCase()).toBe(colour.expectedTrough.toLowerCase());
+
+      // 7c. Trough must be readable against the bar (>= 3.0:1)
+      // This is the critical assertion that catches the old bug where
+      // trough === barColour (1:1 contrast — completely invisible text)
+      const troughRatio = contrastRatio(trough, colour.barColour);
+      expect(
+        troughRatio,
+        `Trough ${trough} on bar ${colour.barColour} must be readable (>= 3.0:1). Old bug: trough was the bar colour itself (1:1).`,
+      ).toBeGreaterThanOrEqual(3.0);
+
+      // 7d. Peak and trough must be visually distinct (pulse is visible)
+      const pairRatio = contrastRatio(peak, trough);
+      expect(
+        pairRatio,
+        `Peak ${peak} and trough ${trough} must differ enough for visible pulse`,
+      ).toBeGreaterThanOrEqual(1.5);
 
       // 8. ★ FREEZE the animation at the peak frame ★
       //    This is the critical step — it ensures the screenshot captures
@@ -278,21 +297,18 @@ test.describe("Lead Flash Peak vs Trough Comparison", () => {
 
       await resumeFlash(overlayPage);
 
-      // ── Trough frame (text blends into bar — invisible) ────────────
+      // ── Trough frame (text pulses to secondary visible colour) ─────
       // Freeze at the 50% keyframe by setting animation-delay to -1s
       // (the animation is 2s long, so -1s = 50% = trough)
-      await overlayPage.evaluate(
-        (t: number) => {
-          const el = document.querySelector(
-            `.TeamBox [Team="${t}"] .JammerBox .Jamming`,
-          ) as HTMLElement | null;
-          if (el) {
-            el.style.animationPlayState = "paused";
-            el.style.animationDelay = "-1s";
-          }
-        },
-        colour.teamNum,
-      );
+      await overlayPage.evaluate((t: number) => {
+        const el = document.querySelector(
+          `.TeamBox [Team="${t}"] .JammerBox .Jamming`,
+        ) as HTMLElement | null;
+        if (el) {
+          el.style.animationPlayState = "paused";
+          el.style.animationDelay = "-1s";
+        }
+      }, colour.teamNum);
 
       await overlayPage.evaluate(
         () =>
@@ -339,15 +355,12 @@ test.describe("Lead Flash — Both Teams Simultaneously", () => {
 
     // Verify both teams have their per-team animations
     for (const team of [1, 2]) {
-      const anim = await overlayPage.evaluate(
-        (t: number) => {
-          const el = document.querySelector(
-            `.TeamBox [Team="${t}"] .JammerBox .Jamming`,
-          ) as HTMLElement | null;
-          return el ? window.getComputedStyle(el).animationName : "NOT_FOUND";
-        },
-        team,
-      );
+      const anim = await overlayPage.evaluate((t: number) => {
+        const el = document.querySelector(
+          `.TeamBox [Team="${t}"] .JammerBox .Jamming`,
+        ) as HTMLElement | null;
+        return el ? window.getComputedStyle(el).animationName : "NOT_FOUND";
+      }, team);
       expect(anim).toBe(`HasLead_T${team}`);
     }
 

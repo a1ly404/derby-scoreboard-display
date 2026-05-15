@@ -257,4 +257,56 @@ test.describe("Lead Jammer Flash", () => {
     const lead = await hasLeadClass(overlayPage, 2);
     expect(lead).toBe(true);
   });
+
+  test("flash trough colour is readable, not the bar colour", async ({
+    overlayPage,
+    pushState,
+  }) => {
+    // This test catches the old bug: the trough frame used the bar colour
+    // itself, making the jammer name invisible during half the animation.
+    // Both peak AND trough must contrast against the bar so text is always
+    // readable throughout the entire flash cycle.
+
+    // Apply dark colours (Team 1 = navy #1f3264, Team 2 = red #ff2100)
+    await pushState(loadState("colours-dark"));
+    await pushState(loadState("team1-lead"));
+
+    // Read the CSS variables set by wcagCheckLeadFlash()
+    const t1Peak = await overlayPage.evaluate(() =>
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--team1-flash-peak")
+        .trim(),
+    );
+    const t1Trough = await overlayPage.evaluate(() =>
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--team1-flash-trough")
+        .trim(),
+    );
+
+    // Peak must pass WCAG AA 4.5:1
+    const peakRatio = contrastRatio(t1Peak, "#1f3264");
+    expect(
+      peakRatio,
+      `Peak ${t1Peak} must pass WCAG AA against navy bar`,
+    ).toBeGreaterThanOrEqual(4.5);
+
+    // Trough must be readable (>= 3.0:1 for large text)
+    const troughRatio = contrastRatio(t1Trough, "#1f3264");
+    expect(
+      troughRatio,
+      `Trough ${t1Trough} must be readable against navy bar (>= 3.0:1)`,
+    ).toBeGreaterThanOrEqual(3.0);
+
+    // Trough must NOT be the bar colour (the exact old bug — 1:1 contrast)
+    expect(
+      t1Trough.toLowerCase(),
+      "Trough must not equal the bar colour (would be invisible)",
+    ).not.toBe("#1f3264");
+
+    // Peak and trough must be distinct so the pulse is visible
+    expect(
+      t1Peak.toLowerCase(),
+      "Peak and trough must be different colours",
+    ).not.toBe(t1Trough.toLowerCase());
+  });
 });

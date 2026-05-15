@@ -23,6 +23,10 @@ jobs:
         with:
           repository: rollerderby/scoreboard
           path: scoreboard
+          fetch-depth: 1
+          sparse-checkout: |
+            html
+          sparse-checkout-cone-mode: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

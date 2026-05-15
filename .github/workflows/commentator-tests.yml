@@ -23,14 +23,23 @@ jobs:
       - name: Checkout eod-custom-overlay on specified branch
         run: |
           cd custom-overlays/eod-custom-overlay
-          git fetch origin ${{ github.event.inputs.overlay-branch }}
-          git checkout ${{ github.event.inputs.overlay-branch }}
+          branch='${{ github.event.inputs.overlay-branch }}'
+
+          if [ -z "$branch" ] || [[ "$branch" == -* ]] || [[ "$branch" == *..* ]] || ! [[ "$branch" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "Invalid overlay-branch input: $branch" >&2
+            exit 1
+          fi
+
+          git fetch origin "refs/heads/$branch:refs/remotes/origin/$branch"
+          git checkout --track -B "$branch" -- "origin/$branch"
 
       - name: Checkout scoreboard (CRG static files)
         uses: actions/checkout@v4
         with:
           repository: rollerderby/scoreboard
           path: scoreboard
+          fetch-depth: 1
+          sparse-checkout: html
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

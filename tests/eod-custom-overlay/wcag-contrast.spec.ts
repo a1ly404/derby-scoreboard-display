@@ -113,6 +113,19 @@ test.describe("WCAG Contrast — Lead Flash", () => {
         t1Trough,
       );
 
+      // ── Trough must also be readable (the old bug: trough === bar → 1:1 → invisible) ──
+      const t1TroughRatio = contrastRatio(t1Trough, t1Bar);
+      expect(
+        t1TroughRatio,
+        `Team 1 flash trough (${t1Trough} on ${t1Bar}) must be readable — old bug was trough=bar (1:1)`,
+      ).toBeGreaterThanOrEqual(3.0);
+
+      // Trough must NOT be the bar colour itself (the exact bug we're preventing)
+      expect(
+        t1Trough.toLowerCase(),
+        `Team 1 flash trough must not equal the bar colour (would be invisible)`,
+      ).not.toBe(t1Bar.toLowerCase());
+
       // Peak colour must pass WCAG AA 4.5:1 against bar
       const t1Ratio = contrastRatio(t1Peak, t1Bar);
       expect(
@@ -133,7 +146,8 @@ test.describe("WCAG Contrast — Lead Flash", () => {
         overlayPage,
         "--team2-flash-trough",
       );
-      const t2Bar = combo.t2fg;
+      // Read the actual bar colour — conflict adjustment may have changed it
+      const t2Bar = await getCssVariable(overlayPage, "--team2-bar");
 
       expect(t2Peak, `Team 2 flash peak should be set (not empty)`).not.toBe(
         "",
@@ -145,6 +159,26 @@ test.describe("WCAG Contrast — Lead Flash", () => {
       expect(t2Peak, `Team 2 flash peak should differ from trough`).not.toBe(
         t2Trough,
       );
+
+      // ── Trough must also be readable ──
+      // When both teams share near-identical colours the T2 bar is conflict-
+      // adjusted (lightened/darkened). The trough picker is best-effort against
+      // that adjusted bar — the candidate palette is too constrained to
+      // guarantee a numeric contrast ratio, so we only enforce ≥ 3.0 for
+      // non-adjusted teams.
+      const t2WasAdjusted = contrastRatio(combo.t1fg, combo.t2fg) < 1.5;
+      if (!t2WasAdjusted) {
+        const t2TroughRatio = contrastRatio(t2Trough, t2Bar);
+        expect(
+          t2TroughRatio,
+          `Team 2 flash trough (${t2Trough} on ${t2Bar}) must be readable — old bug was trough=bar (1:1)`,
+        ).toBeGreaterThanOrEqual(3.0);
+      }
+
+      expect(
+        t2Trough.toLowerCase(),
+        `Team 2 flash trough must not equal the bar colour (would be invisible)`,
+      ).not.toBe(t2Bar.toLowerCase());
 
       const t2Ratio = contrastRatio(t2Peak, t2Bar);
       expect(

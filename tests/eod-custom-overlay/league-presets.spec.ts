@@ -5,9 +5,10 @@
  * For each preset, verifies:
  *   1. The flash peak colour (--teamN-flash-peak) is set by wcagCheckLeadFlash()
  *   2. The peak colour passes WCAG AA 4.5:1 against the bar colour
- *   3. The trough colour (--teamN-flash-trough) equals the bar colour
- *      (so text blends into the bar at 50%, not fades to nothing)
- *   4. A screenshot is captured for visual reference
+ *   3. The trough colour (--teamN-flash-trough) is a second visible colour
+ *      that contrasts ≥ 3.0:1 against the bar (NOT the bar colour itself)
+ *   4. Peak and trough are different colours
+ *   5. A screenshot is captured for visual reference
  *
  * These tests will FAIL if wcagCheckLeadFlash() does not fire on colour load
  * (i.e. the flash falls back to CSS defaults and the trough is 'transparent').
@@ -180,11 +181,24 @@ test.describe("League Presets — Lead Flash WCAG", () => {
         `[${preset.name}] T1 --team1-flash-trough must be set`,
       ).not.toBe("");
 
-      // Trough must equal the bar colour (text blends into bar, not transparent)
+      // Trough must NOT be the bar colour (old behaviour made text invisible at trough)
       expect(
         t1Trough.toLowerCase().replace(/\s/g, ""),
-        `[${preset.name}] T1 trough should equal bar colour ${preset.t1fg}`,
-      ).toBe(preset.t1fg.toLowerCase());
+        `[${preset.name}] T1 trough must not equal bar colour ${preset.t1fg}`,
+      ).not.toBe(preset.t1fg.toLowerCase());
+
+      // Trough must have readable contrast against the bar (≥ 3.0:1)
+      const t1TroughRatio = contrastRatio(t1Trough, preset.t1fg);
+      expect(
+        t1TroughRatio,
+        `[${preset.name}] T1 trough (${t1Trough}) contrast against bar (${preset.t1fg})`,
+      ).toBeGreaterThanOrEqual(3.0);
+
+      // Peak and trough must be different colours
+      expect(
+        t1Peak.toLowerCase(),
+        `[${preset.name}] T1 peak and trough must differ`,
+      ).not.toBe(t1Trough.toLowerCase());
 
       // Peak must pass WCAG AA against the bar colour
       const t1Ratio = contrastRatio(t1Peak, preset.t1fg);
@@ -227,30 +241,38 @@ test.describe("League Presets — Lead Flash WCAG", () => {
         `[${preset.name}] T2 --team2-flash-trough must be set`,
       ).not.toBe("");
 
-      // maybeAdjustTeamConflict() fires when contrastRatio(t1fg, t2fg) < 1.5.
-      // In that case the T2 trough won't match the original t2fg — use relaxed check.
-      const needsAdjustment = contrastRatio(preset.t1fg, preset.t2fg) < 1.5;
-      if (!needsAdjustment) {
+      // Trough must NOT be the bar colour (text must stay readable at trough)
+      const t2EffectiveBar = await getCssVar(overlayPage, "--team2-bar");
+      expect(
+        t2Trough.toLowerCase().replace(/\s/g, ""),
+        `[${preset.name}] T2 trough must not equal bar colour`,
+      ).not.toBe(t2EffectiveBar.toLowerCase().replace(/\s/g, ""));
+
+      // When both teams share the same colour the T2 bar is conflict-adjusted
+      // (lightened/darkened). The trough picker is best-effort against that
+      // adjusted bar — the candidate palette is too constrained to guarantee a
+      // numeric contrast ratio, so we only enforce the ratio for non-adjusted teams.
+      const t2WasAdjusted = contrastRatio(preset.t1fg, preset.t2fg) < 1.5;
+      if (!t2WasAdjusted) {
+        const t2TroughRatio = contrastRatio(t2Trough, t2EffectiveBar);
         expect(
-          t2Trough.toLowerCase().replace(/\s/g, ""),
-          `[${preset.name}] T2 trough should equal bar colour ${preset.t2fg}`,
-        ).toBe(preset.t2fg.toLowerCase());
-      } else {
-        // T2 was conflict-adjusted — verify it's set but don't require original colour
-        expect(
-          t2Trough,
-          `[${preset.name}] T2 trough should be set after conflict adjustment`,
-        ).not.toBe("");
-        expect(
-          t2Trough.toLowerCase().replace(/\s/g, ""),
-          `[${preset.name}] T2 trough must not be 'transparent' after adjustment`,
-        ).not.toBe("transparent");
+          t2TroughRatio,
+          `[${preset.name}] T2 trough (${t2Trough}) contrast against bar (${t2EffectiveBar})`,
+        ).toBeGreaterThanOrEqual(3.0);
       }
 
-      const t2Ratio = contrastRatio(t2Peak, preset.t2fg);
+      // Peak and trough must be different colours
+      expect(
+        t2Peak.toLowerCase(),
+        `[${preset.name}] T2 peak and trough must differ`,
+      ).not.toBe(t2Trough.toLowerCase());
+
+      // Check peak contrast against the effective bar (may differ from preset
+      // after conflict adjustment)
+      const t2Ratio = contrastRatio(t2Peak, t2EffectiveBar);
       expect(
         t2Ratio,
-        `[${preset.name}] T2 flash peak (${t2Peak} on ${preset.t2fg})`,
+        `[${preset.name}] T2 flash peak (${t2Peak} on ${t2EffectiveBar})`,
       ).toBeGreaterThanOrEqual(4.5);
 
       const anim2 = await getAnimationName(overlayPage, 2);
@@ -270,7 +292,7 @@ test.describe("League Presets — Lead Flash WCAG", () => {
 
 test.describe("League Presets — Flash is NOT Transparent (fades-to-nothing regression)", () => {
   for (const preset of LEAGUE_PRESETS) {
-    test(`${preset.name}: trough is bar colour, not transparent`, async ({
+    test(`${preset.name}: trough is a visible colour, not transparent or bar`, async ({
       overlayPage,
       pushState,
     }) => {
@@ -278,6 +300,7 @@ test.describe("League Presets — Flash is NOT Transparent (fades-to-nothing reg
       await pushState(loadState("team1-lead"));
 
       const trough = await getCssVar(overlayPage, "--team1-flash-trough");
+      const peak = await getCssVar(overlayPage, "--team1-flash-peak");
 
       // The core regression: trough must NOT be 'transparent' when colours are set.
       // 'transparent' means text fades to nothing instead of blending into the bar.
@@ -286,11 +309,24 @@ test.describe("League Presets — Flash is NOT Transparent (fades-to-nothing reg
         `[${preset.name}] trough must not be 'transparent' when bar colour is set`,
       ).not.toBe("transparent");
 
-      // And it must match the actual bar colour
+      // Trough must NOT be the bar colour (old bug: text invisible at trough)
       expect(
         trough.toLowerCase().replace(/\s/g, ""),
-        `[${preset.name}] trough should equal bar colour ${preset.t1fg}`,
-      ).toBe(preset.t1fg.toLowerCase());
+        `[${preset.name}] trough must not equal bar colour ${preset.t1fg}`,
+      ).not.toBe(preset.t1fg.toLowerCase());
+
+      // Trough must have readable contrast against the bar (≥ 3.0:1)
+      const troughRatio = contrastRatio(trough, preset.t1fg);
+      expect(
+        troughRatio,
+        `[${preset.name}] trough (${trough}) contrast against bar (${preset.t1fg})`,
+      ).toBeGreaterThanOrEqual(3.0);
+
+      // Peak and trough must be different colours
+      expect(
+        peak.toLowerCase(),
+        `[${preset.name}] peak and trough must differ`,
+      ).not.toBe(trough.toLowerCase());
     });
   }
 });

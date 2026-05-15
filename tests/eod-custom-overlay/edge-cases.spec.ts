@@ -144,22 +144,50 @@ test.describe("Flash Fallback — no explicit colours", () => {
     );
   });
 
-  test("flash trough colour is set to bar colour (not transparent)", async ({
+  test("flash trough colour is a visible second colour (not bar colour)", async ({
     overlayPage,
   }) => {
     // initial.json sets Color(overlay.fg) for both teams, so the trough should
-    // be the actual bar colour, not the CSS default 'transparent'.
+    // be a second visible colour — NOT the bar colour itself (which would make
+    // text invisible at the animation trough) and NOT 'transparent'.
     const trough1 = await getCssVariable(overlayPage, "--team1-flash-trough");
+    const peak1 = await getCssVariable(overlayPage, "--team1-flash-peak");
     expect(trough1, "--team1-flash-trough should not be empty").not.toBe("");
-    // The trough should be the bar colour (#1f3264 from initial.json T1)
-    expect(trough1, "--team1-flash-trough should be the bar colour").toBe(
-      "#1f3264",
-    );
+
+    // Trough must NOT be the bar colour (old behaviour made text invisible)
+    const t1Bar = "#1f3264";
+    expect(
+      trough1.toLowerCase(),
+      "--team1-flash-trough must not equal bar colour (would be invisible)",
+    ).not.toBe(t1Bar);
+
+    // Trough must have readable contrast against the bar
+    const t1TroughRatio = contrastRatio(trough1, t1Bar);
+    expect(
+      t1TroughRatio,
+      `T1 trough (${trough1}) must contrast ≥3.0 against bar (${t1Bar})`,
+    ).toBeGreaterThanOrEqual(3.0);
+
+    // Peak and trough must be different
+    expect(peak1, "T1 peak and trough must differ").not.toBe(trough1);
 
     const trough2 = await getCssVariable(overlayPage, "--team2-flash-trough");
-    expect(trough2, "--team2-flash-trough should be the bar colour").toBe(
-      "#ff2100",
-    );
+    const peak2 = await getCssVariable(overlayPage, "--team2-flash-peak");
+    expect(trough2, "--team2-flash-trough should not be empty").not.toBe("");
+
+    const t2Bar = "#ff2100";
+    expect(
+      trough2.toLowerCase(),
+      "--team2-flash-trough must not equal bar colour (would be invisible)",
+    ).not.toBe(t2Bar);
+
+    const t2TroughRatio = contrastRatio(trough2, t2Bar);
+    expect(
+      t2TroughRatio,
+      `T2 trough (${trough2}) must contrast ≥3.0 against bar (${t2Bar})`,
+    ).toBeGreaterThanOrEqual(3.0);
+
+    expect(peak2, "T2 peak and trough must differ").not.toBe(trough2);
   });
 
   test("animation name is HasLead_T1 when lead is set (per-team keyframe)", async ({
