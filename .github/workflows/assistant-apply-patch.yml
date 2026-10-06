@@ -26,7 +26,7 @@ permissions:
 jobs:
   apply_patch:
     name: Apply patch & (optionally) run tests
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
     env:
       # This workflow prefers a repo secret named ASSISTANT_PAT if present.
       # If ASSISTANT_PAT is not set, it will fall back to GITHUB_TOKEN.
