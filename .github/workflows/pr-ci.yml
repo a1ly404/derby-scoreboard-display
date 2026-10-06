@@ -15,7 +15,7 @@ concurrency:
 jobs:
   test:
     name: Run test suite (layout-aware)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
     env:
       CI: true
       # These will be populated by the "Detect package.json" step into GITHUB_ENV
@@ -114,7 +114,7 @@ jobs:
 
   notify-on-failure:
     name: Post failure comment to PR
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
     needs: test
     if: needs.test.result == 'failure'
     steps:
@@ -175,7 +175,7 @@ jobs:
 
   notify-on-success:
     name: Optional success comment (noisy)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
     needs: test
     # Commenting on success can be noisy; keep it disabled by default. If you want a success comment, change the condition to `needs.test.result == 'success'`
     if: false
