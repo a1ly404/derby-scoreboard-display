@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     name: Playwright Overlay Tests
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
     timeout-minutes: 15
 
     steps:
